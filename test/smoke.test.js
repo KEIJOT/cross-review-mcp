@@ -2,7 +2,7 @@
 // Tests structural correctness without requiring API keys
 
 import { buildAdversarialPrompt, buildConsensusPrompt, SCRUTINY_LEVELS, CONTENT_TYPES } from "../dist/prompts.js";
-import { CrossReviewEngine, parseVerdict, countHighConfidenceClaims } from "../dist/engine.js";
+import { CrossReviewEngine, parseVerdict, countHighConfidenceClaims, validateConfiguration } from "../dist/engine.js";
 
 let passed = 0;
 let failed = 0;
@@ -139,6 +139,62 @@ assert(countHighConfidenceClaims("Confidence:  HIGH\nConfidence:   HIGH") === 2,
 
 // Bold with whitespace
 assert(countHighConfidenceClaims("**Confidence:  HIGH**") === 1, "Bold with extra space");
+
+console.log("\n── API Key Validation ──\n");
+
+// VALID-01: Missing keys detected
+const reviewersMissingKeys = [
+  { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_VALID01" },
+  { id: "r2", name: "Model B", provider: "gemini", model: "gemini-3-flash-preview", apiKeyEnv: "NONEXISTENT_KEY_VALID01_B" },
+];
+const resultMissing = validateConfiguration(reviewersMissingKeys);
+assert(resultMissing.valid === false, "VALID-01: Missing keys detected — valid is false when keys are absent");
+
+// VALID-02: Error lists misconfigured models
+assert(resultMissing.errors.length === 2, "VALID-02: Error array has one entry per misconfigured reviewer");
+assert(
+  typeof resultMissing.errors[0] === "string" && resultMissing.errors[0].includes("Model A"),
+  "VALID-02: First error includes first model name (Model A)"
+);
+assert(
+  typeof resultMissing.errors[1] === "string" && resultMissing.errors[1].includes("Model B"),
+  "VALID-02: Second error includes second model name (Model B)"
+);
+
+// VALID-01: All keys present returns valid
+process.env.TEST_VALID_KEY = "test-key-123";
+const reviewersAllValid = [
+  { id: "r1", name: "Model Valid", provider: "openai", model: "gpt-4o", apiKeyEnv: "TEST_VALID_KEY" },
+];
+const resultAllValid = validateConfiguration(reviewersAllValid);
+assert(resultAllValid.valid === true, "VALID-01: All keys present — valid is true");
+assert(resultAllValid.errors.length === 0, "VALID-01: No errors when all keys are present");
+delete process.env.TEST_VALID_KEY;
+
+// VALID-02: Error message includes env var name
+const reviewersMissingEnv = [
+  { id: "r1", name: "Model X", provider: "openai", model: "gpt-4o", apiKeyEnv: "MISSING_XYZZY" },
+];
+const resultMissingEnv = validateConfiguration(reviewersMissingEnv);
+assert(
+  typeof resultMissingEnv.errors[0] === "string" && resultMissingEnv.errors[0].includes("MISSING_XYZZY"),
+  "VALID-02: Error message includes env var name (MISSING_XYZZY)"
+);
+
+// VALID-01: Mixed valid/invalid — only misconfigured model appears in errors
+process.env.TEST_VALID_KEY_MIXED = "test-key-456";
+const reviewersMixed = [
+  { id: "r1", name: "Model Good", provider: "openai", model: "gpt-4o", apiKeyEnv: "TEST_VALID_KEY_MIXED" },
+  { id: "r2", name: "Model Bad", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_MIXED_KEY" },
+];
+const resultMixed = validateConfiguration(reviewersMixed);
+assert(resultMixed.valid === false, "VALID-01: Mixed — valid is false when any key is missing");
+assert(resultMixed.errors.length === 1, "VALID-01: Mixed — only one error for the misconfigured model");
+assert(
+  typeof resultMixed.errors[0] === "string" && resultMixed.errors[0].includes("Model Bad"),
+  "VALID-01: Mixed — error mentions the misconfigured model name (Model Bad)"
+);
+delete process.env.TEST_VALID_KEY_MIXED;
 
 console.log("\n── Results ──\n");
 console.log(`${passed} passed, ${failed} failed`);

@@ -90,6 +90,10 @@ const KNOWN_PROVIDERS: Record<string, Omit<ReviewerConfig, "id">> = {
   "llama": { name: "Llama 3.3 70B", provider: "openai-compatible", model: "meta-llama/llama-3.3-70b-instruct:free", baseUrl: "https://openrouter.ai/api/v1", apiKeyEnv: "OPENROUTER_API_KEY" },
 };
 
+export function validateConfiguration(reviewers: ReviewerConfig[]): { valid: boolean; errors: string[] } {
+  return { valid: true, errors: [] };
+}
+
 export function resolveReviewers(envModels?: string): ReviewerConfig[] {
   if (!envModels) return DEFAULT_REVIEWERS;
 
