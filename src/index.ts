@@ -245,22 +245,23 @@ function extractSection(text: string, sectionName: string): string | null {
 }
 
 function extractIssueCounts(critique: string): string {
-  const match = critique.match(/ISSUE COUNT:\s*(.+)/i);
+  const cleaned = critique.replace(/\*\*/g, "").replace(/^#{1,6}\s*/gm, "");
+  const match = cleaned.match(/ISSUE COUNT:\s*(.+)/i);
   if (match) return match[1].trim();
-  // Fallback: count individual issue headers (handles markdown-bold variants)
-  const issues = critique.match(/\**\s*ISSUE\s+\d+\s*:?\**\s*:?/gim);
+  const issues = cleaned.match(/ISSUE\s+\d+\s*:/gim);
   return issues ? `${issues.length} issues found` : "no issues";
 }
 
 function filterBySeverity(critique: string, minSeverity: MinSeverity): string {
   if (minSeverity === "minor") return critique;
 
+  const cleaned = critique.replace(/\*\*/g, "").replace(/^#{1,6}\s*/gm, "");
   const minRank = SEVERITY_RANK[minSeverity];
   const issueBlockRegex =
-    /\**\s*ISSUE\s+\d+\s*:?\**\s*:?\s*\n[\s\S]*?(?=\**\s*ISSUE\s+\d+|OVERALL\s+SEVERITY:|$)/gi;
+    /ISSUE\s+\d+\s*:\s*\n[\s\S]*?(?=ISSUE\s+\d+\s*:|OVERALL\s+SEVERITY\s*:|$)/gi;
 
-  let filtered = critique;
-  for (const block of critique.matchAll(issueBlockRegex)) {
+  let filtered = cleaned;
+  for (const block of cleaned.matchAll(issueBlockRegex)) {
     const blockText = block[0];
     const severityMatch = blockText.match(/Severity:\s*(CRITICAL|MAJOR|MINOR)/i);
     if (severityMatch) {

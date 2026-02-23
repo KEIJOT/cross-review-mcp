@@ -9,18 +9,22 @@ console.log(`Active reviewers (${reviewers.length}): ${reviewers.map(r => r.name
 const engine = new CrossReviewEngine(reviewers);
 
 // ── Helpers ────────────────────────────────────────────────────────────
+function cleanMarkdown(text) {
+  return text?.replace(/\*\*/g, '').replace(/^#{1,6}\s*/gm, '') ?? '';
+}
+
 function extractOverallSeverity(critique) {
-  const m = critique?.match(/OVERALL\s+SEVERITY:\s*(CRITICAL|MAJOR|MINOR|NONE)/i);
+  const m = cleanMarkdown(critique).match(/OVERALL\s+SEVERITY\s*:\s*(CRITICAL|MAJOR|MINOR|NONE)/i);
   return m ? m[1].toUpperCase() : 'N/A';
 }
 
 function extractIssueCount(critique) {
-  const m = critique?.match(/ISSUE\s+COUNT:\s*(.+)/i);
+  const m = cleanMarkdown(critique).match(/ISSUE\s+COUNT\s*:\s*(.+)/i);
   return m ? m[1].trim() : 'N/A';
 }
 
 function countIssues(critique) {
-  const matches = critique?.match(/^\**\s*ISSUE\s+\d+\s*:?\**\s*:?/gim);
+  const matches = cleanMarkdown(critique).match(/^ISSUE\s+\d+\s*:/gim);
   return matches ? matches.length : 0;
 }
 
