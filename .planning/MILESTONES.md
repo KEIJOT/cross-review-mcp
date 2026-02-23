@@ -18,7 +18,23 @@
 
 ---
 
-## v0.4.1 — Pre-Publish Hardening (active)
+## v0.4.1 — Pre-Publish Hardening
 
-**Started:** 2026-02-23
-**Goal:** Fix all actionable issues from CONCERNS.md for publish readiness
+**Shipped:** 2026-02-23
+**Phases:** 1-2 (2 phases, 5 plans, 10 tasks)
+**Git range:** `028d00d`..`0e900e3`
+**LOC:** 1,108 TypeScript (2,037 insertions, 97 deletions)
+
+**Delivered:** All 6 actionable issues from CONCERNS.md resolved — engine hardened for npm publish.
+
+**Key accomplishments:**
+- Structured consensus error reporting — buildConsensus() returns `{error}` objects instead of silent undefined
+- Markdown-aware verdict/confidence parsing — handles bold, case, whitespace variants from LLM output
+- Startup API key validation — validateConfiguration() fails fast with model name + env var error messages
+- Zod schema for reviewer config — rejects malformed JSON, wrong types, non-HTTPS URLs at parse time
+- Content size guards — warns at ~50K tokens, rejects at ~100K tokens before any API call
+
+**Archive:** `milestones/v0.4.1-ROADMAP.md`, `milestones/v0.4.1-REQUIREMENTS.md`
+
+---
+
