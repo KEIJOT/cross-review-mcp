@@ -3,7 +3,7 @@
 ## Milestones
 
 - **v0.4.0 Multi-Provider Support** — Phase 0 (shipped 2026-02-22, pre-GSD)
-- **v0.4.1 Pre-Publish Hardening** — Phases 1-2 (in progress)
+- **v0.4.1 Pre-Publish Hardening** — Phases 1-2 (completed 2026-02-23)
 
 ## Overview
 
@@ -18,7 +18,7 @@ v0.4.1 addresses every actionable issue identified in CONCERNS.md before npm pub
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Engine Robustness** - Fix consensus error reporting and parsing brittleness (completed 2026-02-23)
-- [ ] **Phase 2: Validation and Safety** - Add startup API key validation, Zod config schema, and content size guards
+- [x] **Phase 2: Validation and Safety** - Add startup API key validation, Zod config schema, and content size guards (completed 2026-02-23)
 
 ## Phase Details
 
@@ -52,9 +52,9 @@ Plans:
 **Plans**: 3 plans (TDD)
 
 Plans:
-- [ ] 02-01-PLAN.md — API key validation on startup (VALID-01, VALID-02) [TDD, wave 1]
-- [ ] 02-02-PLAN.md — Zod schema for reviewer config (VALID-03, VALID-04, VALID-05) [TDD, wave 2, depends on 02-01]
-- [ ] 02-03-PLAN.md — Content size pre-flight checks (SAFE-01, SAFE-02) [TDD, wave 3, depends on 02-02]
+- [x] 02-01-PLAN.md — API key validation on startup (VALID-01, VALID-02) [TDD, wave 1]
+- [x] 02-02-PLAN.md — Zod schema for reviewer config (VALID-03, VALID-04, VALID-05) [TDD, wave 2, depends on 02-01]
+- [x] 02-03-PLAN.md — Content size pre-flight checks (SAFE-01, SAFE-02) [TDD, wave 3, depends on 02-02]
 
 ## Progress
 
@@ -64,4 +64,4 @@ Phases execute in numeric order: 1 → 2
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Engine Robustness | v0.4.1 | 2/2 | ✓ Complete | 2026-02-23 |
-| 2. Validation and Safety | v0.4.1 | 0/3 | In progress | - |
+| 2. Validation and Safety | v0.4.1 | 3/3 | ✓ Complete | 2026-02-23 |
