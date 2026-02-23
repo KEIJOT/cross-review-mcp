@@ -91,7 +91,21 @@ const KNOWN_PROVIDERS: Record<string, Omit<ReviewerConfig, "id">> = {
 };
 
 export function validateConfiguration(reviewers: ReviewerConfig[]): { valid: boolean; errors: string[] } {
-  return { valid: true, errors: [] };
+  const errors: string[] = [];
+  for (const reviewer of reviewers) {
+    const envVar = reviewer.apiKeyEnv
+      || (reviewer.provider === "openai" ? "OPENAI_API_KEY"
+        : reviewer.provider === "gemini" ? "GEMINI_API_KEY"
+        : undefined);
+    if (!envVar) {
+      errors.push(`${reviewer.name} (${reviewer.id}): no API key environment variable configured`);
+      continue;
+    }
+    if (!process.env[envVar]) {
+      errors.push(`${reviewer.name} (${reviewer.id}): missing API key — set ${envVar}`);
+    }
+  }
+  return { valid: errors.length === 0, errors };
 }
 
 export function resolveReviewers(envModels?: string): ReviewerConfig[] {

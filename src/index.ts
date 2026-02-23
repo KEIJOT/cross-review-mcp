@@ -4,10 +4,21 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { CrossReviewEngine, resolveReviewers, KNOWN_PROVIDERS, type CrossReviewResult } from "./engine.js";
+import { CrossReviewEngine, resolveReviewers, validateConfiguration, KNOWN_PROVIDERS, type CrossReviewResult } from "./engine.js";
 import { SCRUTINY_LEVELS, CONTENT_TYPES } from "./prompts.js";
 
 const reviewers = resolveReviewers(process.env.CROSS_REVIEW_MODELS);
+
+const configCheck = validateConfiguration(reviewers);
+if (!configCheck.valid) {
+  console.error("Configuration errors:");
+  for (const err of configCheck.errors) {
+    console.error(`  - ${err}`);
+  }
+  console.error("\nFix the above issues and restart.");
+  process.exit(1);
+}
+
 const engine = new CrossReviewEngine(reviewers);
 
 console.error(`Reviewers: ${reviewers.map(r => r.name).join(", ")}`);
