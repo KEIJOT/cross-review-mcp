@@ -140,23 +140,21 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
 };
 
 export function parseVerdict(summary: string): "proceed" | "revise" | "abort" {
-  const verdictMatch = summary.match(
-    /^VERDICT:\s*(PROCEED|REVISE|ABORT)/im
+  // Strip markdown bold markers for consistent matching
+  const cleaned = summary.replace(/\*\*/g, "");
+
+  // Try explicit VERDICT: line first (most reliable), handles OVERALL VERDICT too
+  const verdictMatch = cleaned.match(
+    /^\s*(?:OVERALL\s+)?VERDICT:\s*(PROCEED|REVISE|ABORT)/im
   );
   if (verdictMatch) {
     return verdictMatch[1].toLowerCase() as "proceed" | "revise" | "abort";
   }
 
-  const overallMatch = summary.match(
-    /OVERALL\s*VERDICT:\s*(PROCEED|REVISE|ABORT)/im
-  );
-  if (overallMatch) {
-    return overallMatch[1].toLowerCase() as "proceed" | "revise" | "abort";
-  }
-
-  const lowerSummary = summary.toLowerCase();
+  // Fallback: search in summary/conclusion/recommendation section
+  const lowerCleaned = cleaned.toLowerCase();
   const summarySection =
-    lowerSummary.split(/summary:|conclusion:|recommendation:/i).pop() || "";
+    lowerCleaned.split(/summary:|conclusion:|recommendation:/i).pop() || "";
 
   if (summarySection.includes("abort")) {
     return "abort";
@@ -168,7 +166,9 @@ export function parseVerdict(summary: string): "proceed" | "revise" | "abort" {
 }
 
 export function countHighConfidenceClaims(critique: string): number {
-  const matches = critique.match(/Confidence:\s*HIGH/gi);
+  // Strip markdown bold markers for consistent matching
+  const cleaned = critique.replace(/\*\*/g, "");
+  const matches = cleaned.match(/Confidence:\s*HIGH/gi);
   return matches ? matches.length : 0;
 }
 
