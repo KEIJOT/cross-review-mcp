@@ -139,6 +139,39 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   "qwen/qwen3-32b": { input: 0, output: 0 },
 };
 
+export function parseVerdict(summary: string): "proceed" | "revise" | "abort" {
+  const verdictMatch = summary.match(
+    /^VERDICT:\s*(PROCEED|REVISE|ABORT)/im
+  );
+  if (verdictMatch) {
+    return verdictMatch[1].toLowerCase() as "proceed" | "revise" | "abort";
+  }
+
+  const overallMatch = summary.match(
+    /OVERALL\s*VERDICT:\s*(PROCEED|REVISE|ABORT)/im
+  );
+  if (overallMatch) {
+    return overallMatch[1].toLowerCase() as "proceed" | "revise" | "abort";
+  }
+
+  const lowerSummary = summary.toLowerCase();
+  const summarySection =
+    lowerSummary.split(/summary:|conclusion:|recommendation:/i).pop() || "";
+
+  if (summarySection.includes("abort")) {
+    return "abort";
+  } else if (summarySection.includes("proceed")) {
+    return "proceed";
+  }
+
+  return "revise";
+}
+
+export function countHighConfidenceClaims(critique: string): number {
+  const matches = critique.match(/Confidence:\s*HIGH/gi);
+  return matches ? matches.length : 0;
+}
+
 export class CrossReviewEngine {
   private openaiClients: Map<string, OpenAI> = new Map();
   private gemini: GoogleGenerativeAI | null = null;
@@ -362,11 +395,6 @@ export class CrossReviewEngine {
     }
   }
 
-  private countHighConfidenceClaims(critique: string): number {
-    const matches = critique.match(/Confidence:\s*HIGH/gi);
-    return matches ? matches.length : 0;
-  }
-
   private async buildConsensus(
     reviews: Array<{ model: string; critique: string }>,
     levelConfig: (typeof SCRUTINY_LEVELS)[ScrutinyLevel]
@@ -380,7 +408,7 @@ export class CrossReviewEngine {
     // Pick arbitrator: reviewer with fewest HIGH-confidence claims (most cautious)
     const reviewsWithCounts = reviews.map((r) => ({
       ...r,
-      highCount: this.countHighConfidenceClaims(r.critique),
+      highCount: countHighConfidenceClaims(r.critique),
     }));
     reviewsWithCounts.sort((a, b) => a.highCount - b.highCount);
     const arbitratorName = reviewsWithCounts[0].model;
@@ -471,7 +499,7 @@ export class CrossReviewEngine {
         };
       }
 
-      const verdict = this.parseVerdict(summary);
+      const verdict = parseVerdict(summary);
 
       return {
         consensus: { verdict, arbitrator, summary },
@@ -493,31 +521,4 @@ export class CrossReviewEngine {
     }
   }
 
-  private parseVerdict(summary: string): "proceed" | "revise" | "abort" {
-    const verdictMatch = summary.match(
-      /^VERDICT:\s*(PROCEED|REVISE|ABORT)/im
-    );
-    if (verdictMatch) {
-      return verdictMatch[1].toLowerCase() as "proceed" | "revise" | "abort";
-    }
-
-    const overallMatch = summary.match(
-      /OVERALL\s*VERDICT:\s*(PROCEED|REVISE|ABORT)/im
-    );
-    if (overallMatch) {
-      return overallMatch[1].toLowerCase() as "proceed" | "revise" | "abort";
-    }
-
-    const lowerSummary = summary.toLowerCase();
-    const summarySection =
-      lowerSummary.split(/summary:|conclusion:|recommendation:/i).pop() || "";
-
-    if (summarySection.includes("abort")) {
-      return "abort";
-    } else if (summarySection.includes("proceed")) {
-      return "proceed";
-    }
-
-    return "revise";
-  }
 }

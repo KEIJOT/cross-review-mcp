@@ -2,7 +2,7 @@
 // Tests structural correctness without requiring API keys
 
 import { buildAdversarialPrompt, buildConsensusPrompt, SCRUTINY_LEVELS, CONTENT_TYPES } from "../dist/prompts.js";
-import { CrossReviewEngine } from "../dist/engine.js";
+import { CrossReviewEngine, parseVerdict, countHighConfidenceClaims } from "../dist/engine.js";
 
 let passed = 0;
 let failed = 0;
@@ -93,6 +93,52 @@ const mockSuccessConsensus = {
   // error intentionally absent — should be valid per interface
 };
 assert(mockSuccessConsensus.error === undefined, "consensus type: error field is optional (undefined when not present)");
+
+console.log("\n── Verdict Parsing ──\n");
+
+// Plain text (regression — must still work)
+assert(parseVerdict("VERDICT: PROCEED\n\nSome analysis...") === "proceed", "Plain VERDICT: PROCEED");
+assert(parseVerdict("VERDICT: REVISE\n\nSome analysis...") === "revise", "Plain VERDICT: REVISE");
+assert(parseVerdict("VERDICT: ABORT\n\nSome analysis...") === "abort", "Plain VERDICT: ABORT");
+
+// Markdown bold formatting (PARSE-01 — currently fails)
+assert(parseVerdict("**VERDICT: PROCEED**\n\nAnalysis...") === "proceed", "Bold VERDICT: PROCEED");
+assert(parseVerdict("**VERDICT: REVISE**\n\nAnalysis...") === "revise", "Bold VERDICT: REVISE");
+assert(parseVerdict("**VERDICT: ABORT**\n\nAnalysis...") === "abort", "Bold VERDICT: ABORT");
+
+// Lowercase (currently fails)
+assert(parseVerdict("verdict: proceed\n\nAnalysis...") === "proceed", "Lowercase verdict: proceed");
+assert(parseVerdict("Verdict: Revise\n\nAnalysis...") === "revise", "Mixed case Verdict: Revise");
+
+// Bold with extra whitespace (currently fails)
+assert(parseVerdict("**VERDICT:  PROCEED**\n\nAnalysis...") === "proceed", "Bold with extra space");
+assert(parseVerdict("  **VERDICT: ABORT**  \n\nAnalysis...") === "abort", "Bold with leading/trailing whitespace");
+
+// Bold verdict word only (currently fails — some models bold just the value)
+assert(parseVerdict("VERDICT: **PROCEED**\n\nAnalysis...") === "proceed", "Bold value only");
+
+// OVERALL VERDICT variant with bold
+assert(parseVerdict("**OVERALL VERDICT: PROCEED**\n\nAnalysis...") === "proceed", "Bold OVERALL VERDICT");
+
+console.log("\n── Confidence Counting ──\n");
+
+// Plain text (regression — must still work)
+assert(countHighConfidenceClaims("Confidence: HIGH\nConfidence: HIGH\nConfidence: LOW") === 2, "Plain HIGH count");
+assert(countHighConfidenceClaims("Confidence: LOW\nConfidence: MEDIUM") === 0, "No HIGH claims");
+
+// Markdown bold formatting (PARSE-02 — currently fails)
+assert(countHighConfidenceClaims("**Confidence: HIGH**\n**Confidence: HIGH**") === 2, "Bold Confidence: HIGH");
+assert(countHighConfidenceClaims("**Confidence:** HIGH\nConfidence: **HIGH**") === 2, "Partially bold confidence");
+
+// Case variations (currently fails)
+assert(countHighConfidenceClaims("confidence: high\nCONFIDENCE: HIGH") === 2, "Mixed case confidence");
+assert(countHighConfidenceClaims("Confidence: High\nConfidence: high") === 2, "Title and lower case");
+
+// Extra whitespace (currently fails)
+assert(countHighConfidenceClaims("Confidence:  HIGH\nConfidence:   HIGH") === 2, "Extra whitespace");
+
+// Bold with whitespace
+assert(countHighConfidenceClaims("**Confidence:  HIGH**") === 1, "Bold with extra space");
 
 console.log("\n── Results ──\n");
 console.log(`${passed} passed, ${failed} failed`);
