@@ -17,7 +17,7 @@ v0.4.1 addresses every actionable issue identified in CONCERNS.md before npm pub
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Engine Robustness** - Fix consensus error reporting and parsing brittleness
+- [x] **Phase 1: Engine Robustness** - Fix consensus error reporting and parsing brittleness (completed 2026-02-23)
 - [ ] **Phase 2: Validation and Safety** - Add startup API key validation, Zod config schema, and content size guards
 
 ## Phase Details
@@ -35,8 +35,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans (TDD)
 
 Plans:
-- [ ] 01-01-PLAN.md — Structured consensus error reporting (ERR-01, ERR-02) [TDD, wave 1]
-- [ ] 01-02-PLAN.md — Robust verdict and confidence parsing (PARSE-01, PARSE-02) [TDD, wave 2, depends on 01-01]
+- [x] 01-01-PLAN.md — Structured consensus error reporting (ERR-01, ERR-02) [TDD, wave 1]
+- [x] 01-02-PLAN.md — Robust verdict and confidence parsing (PARSE-01, PARSE-02) [TDD, wave 2, depends on 01-01]
 
 ### Phase 2: Validation and Safety
 
@@ -63,5 +63,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Engine Robustness | v0.4.1 | 0/2 | Not started | - |
+| 1. Engine Robustness | v0.4.1 | 2/2 | ✓ Complete | 2026-02-23 |
 | 2. Validation and Safety | v0.4.1 | 0/3 | Not started | - |
