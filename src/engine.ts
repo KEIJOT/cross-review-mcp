@@ -44,6 +44,7 @@ export interface CrossReviewResult {
     verdict: "proceed" | "revise" | "abort";
     arbitrator: string;
     summary: string;
+    error?: string;  // human-readable failure reason; present when consensus was attempted but failed
   };
   totalDurationMs: number;
   cost: {

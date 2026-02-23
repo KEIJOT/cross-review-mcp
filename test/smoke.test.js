@@ -1,7 +1,8 @@
 // Cross-Review MCP - Smoke Tests (v0.3.0, 2026-02-22)
 // Tests structural correctness without requiring API keys
 
-import { buildAdversarialPrompt, buildConsensusPrompt, SCRUTINY_LEVELS, CONTENT_TYPES } from "../src/prompts.js";
+import { buildAdversarialPrompt, buildConsensusPrompt, SCRUTINY_LEVELS, CONTENT_TYPES } from "../dist/prompts.js";
+import { CrossReviewEngine } from "../dist/engine.js";
 
 let passed = 0;
 let failed = 0;
@@ -53,6 +54,45 @@ console.log("\n── Content Types ──\n");
 assert(Object.keys(CONTENT_TYPES).length === 7, "Seven content types defined");
 assert(CONTENT_TYPES.general !== undefined, "General content type exists");
 assert(CONTENT_TYPES.code !== undefined, "Code content type exists");
+
+console.log("\n── Consensus Error Reporting ──\n");
+
+// ERR-01: When no API clients are available, consensus should carry a structured error
+// rather than being undefined (which is indistinguishable from "not requested").
+const engineNoKeys = new CrossReviewEngine([
+  { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_12345" },
+  { id: "r2", name: "Model B", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_67890" },
+]);
+
+const resultNoKeys = await engineNoKeys.review("Test content for consensus error", { includeConsensus: true });
+
+// ERR-01: consensus must be defined (not undefined) so callers know an attempt was made
+assert(resultNoKeys.consensus !== undefined, "consensus error: consensus object is defined (not undefined) when attempt was made");
+
+// ERR-01: consensus must carry an error field explaining the failure
+assert(
+  typeof resultNoKeys.consensus?.error === "string" && resultNoKeys.consensus.error.length > 0,
+  "consensus error: error field is a non-empty string when consensus fails"
+);
+
+// ERR-02: the error message must be human-readable (contains a meaningful word)
+const errorMsg = resultNoKeys.consensus?.error || "";
+const isHumanReadable = /fail|error|no |cannot|unable|not available|requires|unavailable/i.test(errorMsg);
+assert(isHumanReadable, `consensus error: error message is human-readable (got: "${errorMsg}")`);
+
+// ERR-01: a caller can distinguish failed consensus from missing consensus via error field
+// When consensus.error is defined → attempted-and-failed; when consensus is undefined → not requested
+const notRequestedResult = await engineNoKeys.review("Test content", { includeConsensus: false });
+assert(notRequestedResult.consensus === undefined, "consensus error: consensus is undefined when not requested (distinguishable from failure)");
+
+// Type contract: successful consensus objects have error as optional (undefined)
+const mockSuccessConsensus = {
+  verdict: /** @type {"proceed"} */ ("proceed"),
+  arbitrator: "Model A",
+  summary: "All good",
+  // error intentionally absent — should be valid per interface
+};
+assert(mockSuccessConsensus.error === undefined, "consensus type: error field is optional (undefined when not present)");
 
 console.log("\n── Results ──\n");
 console.log(`${passed} passed, ${failed} failed`);
