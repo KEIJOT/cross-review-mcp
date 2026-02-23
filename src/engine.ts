@@ -3,6 +3,7 @@
 
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { z } from "zod";
 import {
   buildAdversarialPrompt,
   buildConsensusPrompt,
@@ -19,6 +20,25 @@ export interface ReviewerConfig {
   baseUrl?: string;
   apiKeyEnv?: string;
 }
+
+const ReviewerConfigSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).optional(),
+  provider: z.enum(["openai", "gemini", "openai-compatible"]),
+  model: z.string().min(1),
+  baseUrl: z.string().url().refine(
+    (url) => url.startsWith("https://"),
+    { message: "baseUrl must use HTTPS" }
+  ).optional(),
+  apiKeyEnv: z.string().optional(),
+});
+
+const ReviewerConfigArraySchema = z.array(
+  z.union([
+    z.string().min(1),  // shorthand provider id
+    ReviewerConfigSchema,
+  ])
+);
 
 export interface TokenUsage {
   inputTokens: number;
@@ -111,27 +131,34 @@ export function validateConfiguration(reviewers: ReviewerConfig[]): { valid: boo
 export function resolveReviewers(envModels?: string): ReviewerConfig[] {
   if (!envModels) return DEFAULT_REVIEWERS;
 
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(envModels);
-    if (!Array.isArray(parsed)) return DEFAULT_REVIEWERS;
-
-    return parsed.map((entry: string | ReviewerConfig, i: number) => {
-      // Short form: just a known provider id like "deepseek"
-      if (typeof entry === "string") {
-        const known = KNOWN_PROVIDERS[entry];
-        if (!known) throw new Error(`Unknown model shorthand: ${entry}. Known: ${Object.keys(KNOWN_PROVIDERS).join(", ")}`);
-        return { id: entry, ...known };
-      }
-      // Full form: complete ReviewerConfig object
-      if (entry.id && entry.provider && entry.model) {
-        return entry;
-      }
-      throw new Error(`Invalid reviewer config at index ${i}`);
-    });
+    parsed = JSON.parse(envModels);
   } catch (e) {
-    console.error(`Failed to parse CROSS_REVIEW_MODELS: ${e}. Using defaults.`);
-    return DEFAULT_REVIEWERS;
+    throw new Error(`CROSS_REVIEW_MODELS is not valid JSON: ${e instanceof Error ? e.message : String(e)}`);
   }
+
+  let validated: z.infer<typeof ReviewerConfigArraySchema>;
+  try {
+    validated = ReviewerConfigArraySchema.parse(parsed);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      const issues = e.issues.map(i => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
+      throw new Error(`CROSS_REVIEW_MODELS validation failed:\n${issues}`);
+    }
+    throw e;
+  }
+
+  return validated.map((entry) => {
+    if (typeof entry === "string") {
+      const known = KNOWN_PROVIDERS[entry];
+      if (!known) {
+        throw new Error(`Unknown model shorthand: ${entry}. Known: ${Object.keys(KNOWN_PROVIDERS).join(", ")}`);
+      }
+      return { id: entry, ...known };
+    }
+    return { ...entry, name: entry.name || entry.id };
+  });
 }
 
 export { KNOWN_PROVIDERS };

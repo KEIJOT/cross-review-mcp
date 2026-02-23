@@ -7,7 +7,13 @@ import { z } from "zod";
 import { CrossReviewEngine, resolveReviewers, validateConfiguration, KNOWN_PROVIDERS, type CrossReviewResult } from "./engine.js";
 import { SCRUTINY_LEVELS, CONTENT_TYPES } from "./prompts.js";
 
-const reviewers = resolveReviewers(process.env.CROSS_REVIEW_MODELS);
+let reviewers;
+try {
+  reviewers = resolveReviewers(process.env.CROSS_REVIEW_MODELS);
+} catch (e) {
+  console.error(e instanceof Error ? e.message : String(e));
+  process.exit(1);
+}
 
 const configCheck = validateConfiguration(reviewers);
 if (!configCheck.valid) {

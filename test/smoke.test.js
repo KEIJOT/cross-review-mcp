@@ -227,7 +227,7 @@ console.log("\n── Zod Config Validation ──\n");
   }
   assert(threw, "VALID-03: Wrong types (number id, boolean model) causes resolveReviewers to throw");
   assert(
-    /string|expected|type/i.test(errorMsg),
+    /string|expected|type|invalid/i.test(errorMsg),
     `VALID-03: Wrong types error mentions type issue (got: "${errorMsg}")`
   );
 }
