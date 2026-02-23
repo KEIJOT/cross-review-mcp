@@ -233,11 +233,16 @@ export class CrossReviewEngine {
           successfulReviews,
           levelConfig
         );
-        if (result) {
-          consensus = result.consensus;
-          consensusTokenUsage = result.tokenUsage;
-          consensusModelId = result.modelId;
-        }
+        consensus = result.consensus;
+        consensusTokenUsage = result.tokenUsage;
+        consensusModelId = result.modelId;
+      } else {
+        consensus = {
+          verdict: "revise" as const,
+          arbitrator: "none",
+          summary: "",
+          error: `Consensus requires at least 2 successful reviews, got ${successfulReviews.length}`,
+        };
       }
     }
 
@@ -365,14 +370,11 @@ export class CrossReviewEngine {
   private async buildConsensus(
     reviews: Array<{ model: string; critique: string }>,
     levelConfig: (typeof SCRUTINY_LEVELS)[ScrutinyLevel]
-  ): Promise<
-    | {
-        consensus: NonNullable<CrossReviewResult["consensus"]>;
-        tokenUsage?: TokenUsage;
-        modelId: string;
-      }
-    | undefined
-  > {
+  ): Promise<{
+    consensus: NonNullable<CrossReviewResult["consensus"]>;
+    tokenUsage?: TokenUsage;
+    modelId: string;
+  }> {
     const consensusPrompt = buildConsensusPrompt(reviews);
 
     // Pick arbitrator: reviewer with fewest HIGH-confidence claims (most cautious)
@@ -394,7 +396,18 @@ export class CrossReviewEngine {
 
       if (arbitratorConfig && (arbitratorConfig.provider === "openai" || arbitratorConfig.provider === "openai-compatible")) {
         const client = this.getOpenAIClient(arbitratorConfig);
-        if (!client) return undefined;
+        if (!client) {
+          return {
+            consensus: {
+              verdict: "revise" as const,
+              arbitrator: arbitratorName,
+              summary: "",
+              error: `Consensus failed: no API client available for arbitrator ${arbitratorName}`,
+            },
+            tokenUsage: undefined,
+            modelId: arbitratorConfig.model,
+          };
+        }
         const tokenParam = arbitratorConfig.provider === "openai" && arbitratorConfig.model.startsWith("gpt-5")
           ? { max_completion_tokens: levelConfig.maxTokens }
           : { max_tokens: levelConfig.maxTokens };
@@ -427,7 +440,18 @@ export class CrossReviewEngine {
       } else {
         // Fallback: use first available openai-compatible client
         const firstClient = this.openaiClients.values().next().value;
-        if (!firstClient) return undefined;
+        if (!firstClient) {
+          return {
+            consensus: {
+              verdict: "revise" as const,
+              arbitrator: "none",
+              summary: "",
+              error: "Consensus failed: no API clients available for arbitration",
+            },
+            tokenUsage: undefined,
+            modelId: "unknown",
+          };
+        }
         const fallbackReviewer = this.reviewers[0];
         const fallbackTokenParam = fallbackReviewer.provider === "openai" && fallbackReviewer.model.startsWith("gpt-5")
           ? { max_completion_tokens: levelConfig.maxTokens }
@@ -456,7 +480,16 @@ export class CrossReviewEngine {
       };
     } catch (error) {
       console.error("Failed to build consensus:", error);
-      return undefined;
+      return {
+        consensus: {
+          verdict: "revise" as const,
+          arbitrator: arbitratorName || "unknown",
+          summary: "",
+          error: `Consensus synthesis failed: ${error instanceof Error ? error.message : String(error)}`,
+        },
+        tokenUsage: undefined,
+        modelId: arbitratorConfig?.model || "unknown",
+      };
     }
   }
 
