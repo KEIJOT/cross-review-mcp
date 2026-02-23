@@ -1,0 +1,84 @@
+# Requirements: Cross-Review MCP
+
+**Defined:** 2026-02-23
+**Core Value:** Multi-model adversarial review with consensus synthesis
+
+## v0.4.1 Requirements
+
+Requirements for pre-publish hardening. Each maps to roadmap phases.
+
+### Error Handling
+
+- [ ] **ERR-01**: When buildConsensus() fails, result includes structured error with reason instead of silent undefined
+- [ ] **ERR-02**: User sees clear indication that consensus was attempted but failed, with failure reason
+
+### Parsing Robustness
+
+- [ ] **PARSE-01**: parseVerdict() handles markdown-formatted verdict lines (bold, lowercase, varying whitespace)
+- [ ] **PARSE-02**: countHighConfidenceClaims() handles markdown-formatted confidence labels (bold, varying case/whitespace)
+
+### Startup Validation
+
+- [ ] **VALID-01**: validateConfiguration() checks all configured reviewers have API keys before any review runs
+- [ ] **VALID-02**: Missing API keys produce clear error listing which models are misconfigured
+- [ ] **VALID-03**: CROSS_REVIEW_MODELS validated against Zod schema on parse
+- [ ] **VALID-04**: Custom provider baseUrl validated as HTTPS URL
+- [ ] **VALID-05**: Malformed reviewer configs rejected with clear error message
+
+### Content Safety
+
+- [ ] **SAFE-01**: Review warns if content exceeds ~50K tokens (approximate)
+- [ ] **SAFE-02**: Review rejects content exceeding ~100K tokens with clear error
+
+## v0.5.0 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Operational
+
+- **OPS-01**: Optional per-minute rate limiting
+- **OPS-02**: Request deduplication for identical content
+- **OPS-03**: Review history/audit logging
+- **OPS-04**: Async job mode with polling
+
+### Performance
+
+- **PERF-01**: Result caching with TTL
+- **PERF-02**: Streaming for large results
+- **PERF-03**: Live token pricing from provider APIs
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Rate limiting | Left to MCP server/client layer |
+| Result caching | Adds complexity, reviews should be fresh |
+| Streaming | No current use case blocking |
+| Review history | Future milestone, needs design |
+| Live pricing | Static rates sufficient for cost estimates |
+| Regex perf optimization | Nanoseconds vs 30s API calls |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| ERR-01 | Phase 1: Engine Robustness | Pending |
+| ERR-02 | Phase 1: Engine Robustness | Pending |
+| PARSE-01 | Phase 1: Engine Robustness | Pending |
+| PARSE-02 | Phase 1: Engine Robustness | Pending |
+| VALID-01 | Phase 2: Validation and Safety | Pending |
+| VALID-02 | Phase 2: Validation and Safety | Pending |
+| VALID-03 | Phase 2: Validation and Safety | Pending |
+| VALID-04 | Phase 2: Validation and Safety | Pending |
+| VALID-05 | Phase 2: Validation and Safety | Pending |
+| SAFE-01 | Phase 2: Validation and Safety | Pending |
+| SAFE-02 | Phase 2: Validation and Safety | Pending |
+
+**Coverage:**
+- v0.4.1 requirements: 11 total
+- Mapped to phases: 11
+- Unmapped: 0
+
+---
+*Requirements defined: 2026-02-23*
+*Last updated: 2026-02-23 after roadmap creation*
