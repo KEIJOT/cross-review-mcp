@@ -164,6 +164,9 @@ export function resolveReviewers(envModels?: string): ReviewerConfig[] {
 
 export { KNOWN_PROVIDERS };
 
+const TOKEN_WARN_THRESHOLD = 50_000;    // SAFE-01: warn above this
+const TOKEN_REJECT_THRESHOLD = 100_000; // SAFE-02: reject above this
+
 // USD per 1M tokens (as of Feb 2026)
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   // OpenAI
@@ -218,8 +221,12 @@ export function countHighConfidenceClaims(critique: string): number {
   return matches ? matches.length : 0;
 }
 
+/**
+ * Rough token estimate: ~4 characters per token (GPT tokenizer approximation).
+ * Not precise, but sufficient for pre-flight size gating.
+ */
 export function estimateTokens(text: string): number {
-  return 0; // stub
+  return Math.ceil(text.length / 4);
 }
 
 export class CrossReviewEngine {
@@ -291,6 +298,21 @@ export class CrossReviewEngine {
     const scrutinyLevel = options.scrutinyLevel || "standard";
     const contentType = options.contentType || "general";
     const includeConsensus = options.includeConsensus ?? true;
+
+    // Content size pre-flight check
+    const estimatedTokens = estimateTokens(content);
+    if (estimatedTokens > TOKEN_REJECT_THRESHOLD) {
+      throw new Error(
+        `Content too large: ~${estimatedTokens.toLocaleString()} tokens (estimated). ` +
+        `Maximum is ~${TOKEN_REJECT_THRESHOLD.toLocaleString()} tokens. ` +
+        `Reduce content size before submitting for review.`
+      );
+    }
+    let warning: string | undefined;
+    if (estimatedTokens > TOKEN_WARN_THRESHOLD) {
+      warning = `Large content: ~${estimatedTokens.toLocaleString()} estimated tokens. ` +
+        `Review will proceed, but costs may be elevated and some models may timeout.`;
+    }
 
     const levelConfig = SCRUTINY_LEVELS[scrutinyLevel];
     const prompt = buildAdversarialPrompt(content, contentType, scrutinyLevel);
@@ -365,6 +387,7 @@ export class CrossReviewEngine {
         outputTokens: totalOutput,
         estimatedUsd: totalCost,
       },
+      warning,
     };
   }
 
