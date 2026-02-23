@@ -49,12 +49,12 @@ Plans:
   3. Submitting content above ~50K tokens produces a warning in the review result (review still proceeds)
   4. Submitting content above ~100K tokens causes immediate rejection with a clear error before any API call is made
   5. A reviewer config with a non-HTTPS baseUrl is rejected at validation time with a clear message
-**Plans**: TBD
+**Plans**: 3 plans (TDD)
 
 Plans:
-- [ ] 02-01: API key validation on startup (VALID-01, VALID-02)
-- [ ] 02-02: Zod schema for reviewer config (VALID-03, VALID-04, VALID-05)
-- [ ] 02-03: Content size pre-flight checks (SAFE-01, SAFE-02)
+- [ ] 02-01-PLAN.md — API key validation on startup (VALID-01, VALID-02) [TDD, wave 1]
+- [ ] 02-02-PLAN.md — Zod schema for reviewer config (VALID-03, VALID-04, VALID-05) [TDD, wave 2, depends on 02-01]
+- [ ] 02-03-PLAN.md — Content size pre-flight checks (SAFE-01, SAFE-02) [TDD, wave 3, depends on 02-02]
 
 ## Progress
 
@@ -64,4 +64,4 @@ Phases execute in numeric order: 1 → 2
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Engine Robustness | v0.4.1 | 2/2 | ✓ Complete | 2026-02-23 |
-| 2. Validation and Safety | v0.4.1 | 0/3 | Not started | - |
+| 2. Validation and Safety | v0.4.1 | 0/3 | In progress | - |
