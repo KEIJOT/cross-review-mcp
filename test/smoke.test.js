@@ -2,7 +2,7 @@
 // Tests structural correctness without requiring API keys
 
 import { buildAdversarialPrompt, buildConsensusPrompt, SCRUTINY_LEVELS, CONTENT_TYPES } from "../dist/prompts.js";
-import { CrossReviewEngine, parseVerdict, countHighConfidenceClaims, validateConfiguration } from "../dist/engine.js";
+import { CrossReviewEngine, parseVerdict, countHighConfidenceClaims, validateConfiguration, resolveReviewers } from "../dist/engine.js";
 
 let passed = 0;
 let failed = 0;
@@ -195,6 +195,119 @@ assert(
   "VALID-01: Mixed — error mentions the misconfigured model name (Model Bad)"
 );
 delete process.env.TEST_VALID_KEY_MIXED;
+
+console.log("\n── Zod Config Validation ──\n");
+
+// VALID-03: Malformed JSON rejected — resolveReviewers should throw, not fall back
+{
+  let threw = false;
+  let errorMsg = "";
+  try {
+    resolveReviewers("not valid json");
+  } catch (e) {
+    threw = true;
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+  assert(threw, "VALID-03: Malformed JSON causes resolveReviewers to throw");
+  assert(
+    /CROSS_REVIEW_MODELS|parse|invalid/i.test(errorMsg),
+    `VALID-03: Malformed JSON error mentions CROSS_REVIEW_MODELS or parse/invalid (got: "${errorMsg}")`
+  );
+}
+
+// VALID-03: Wrong types rejected — number instead of string for model
+{
+  let threw = false;
+  let errorMsg = "";
+  try {
+    resolveReviewers(JSON.stringify([{ id: 123, provider: "openai", model: true }]));
+  } catch (e) {
+    threw = true;
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+  assert(threw, "VALID-03: Wrong types (number id, boolean model) causes resolveReviewers to throw");
+  assert(
+    /string|expected|type/i.test(errorMsg),
+    `VALID-03: Wrong types error mentions type issue (got: "${errorMsg}")`
+  );
+}
+
+// VALID-04: HTTP baseUrl rejected
+{
+  let threw = false;
+  let errorMsg = "";
+  try {
+    resolveReviewers(JSON.stringify([{ id: "evil", name: "Evil", provider: "openai-compatible", model: "gpt-4", baseUrl: "http://evil.com/v1" }]));
+  } catch (e) {
+    threw = true;
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+  assert(threw, "VALID-04: HTTP baseUrl causes resolveReviewers to throw");
+  assert(
+    /https/i.test(errorMsg),
+    `VALID-04: HTTP baseUrl error mentions HTTPS (got: "${errorMsg}")`
+  );
+}
+
+// VALID-04: HTTPS baseUrl accepted
+{
+  let threw = false;
+  let result = null;
+  try {
+    result = resolveReviewers(JSON.stringify([{ id: "safe", name: "Safe", provider: "openai-compatible", model: "gpt-4", baseUrl: "https://api.safe.com/v1" }]));
+  } catch (e) {
+    threw = true;
+  }
+  assert(!threw, "VALID-04: HTTPS baseUrl does NOT throw");
+  assert(
+    Array.isArray(result) && result.length === 1 && result[0].id === "safe",
+    "VALID-04: HTTPS baseUrl result has length 1 with id 'safe'"
+  );
+}
+
+// VALID-05: Missing required fields rejected
+{
+  let threw = false;
+  let errorMsg = "";
+  try {
+    resolveReviewers(JSON.stringify([{ id: "incomplete" }]));
+  } catch (e) {
+    threw = true;
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+  assert(threw, "VALID-05: Missing required fields (provider, model) causes resolveReviewers to throw");
+  assert(errorMsg.length > 0, `VALID-05: Missing fields error has a descriptive message (got: "${errorMsg}")`);
+}
+
+// VALID-03: Valid shorthand strings still work (regression)
+{
+  let threw = false;
+  let result = null;
+  try {
+    result = resolveReviewers(JSON.stringify(["gpt-5.2", "gemini-flash"]));
+  } catch (e) {
+    threw = true;
+  }
+  assert(!threw, "VALID-03: Valid shorthand strings do NOT throw (regression)");
+  assert(
+    Array.isArray(result) && result.length === 2,
+    "VALID-03: Valid shorthands return array of length 2"
+  );
+}
+
+// VALID-05: Invalid provider value rejected
+{
+  let threw = false;
+  let errorMsg = "";
+  try {
+    resolveReviewers(JSON.stringify([{ id: "x", name: "X", provider: "invalid-provider", model: "m" }]));
+  } catch (e) {
+    threw = true;
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+  assert(threw, "VALID-05: Invalid provider enum value causes resolveReviewers to throw");
+  assert(errorMsg.length > 0, `VALID-05: Invalid provider error has a descriptive message (got: "${errorMsg}")`);
+}
 
 console.log("\n── Results ──\n");
 console.log(`${passed} passed, ${failed} failed`);
