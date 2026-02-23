@@ -159,6 +159,11 @@ function formatResult(result: CrossReviewResult, minSeverity: MinSeverity): stri
   lines.push("═".repeat(40));
   lines.push("");
 
+  if (result.warning) {
+    lines.push(`WARNING: ${result.warning}`);
+    lines.push("");
+  }
+
   if (result.consensus) {
     lines.push(`VERDICT: ${result.consensus.verdict.toUpperCase()}`);
     lines.push(`Arbitrator: ${result.consensus.arbitrator}`);
