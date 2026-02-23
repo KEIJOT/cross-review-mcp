@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-23)
 
 **Core value:** Multi-model adversarial review with consensus synthesis
-**Current focus:** v0.4.1 Pre-Publish Hardening — Phase 2: Validation and Safety (in progress)
+**Current focus:** v0.4.1 Pre-Publish Hardening — Phase 2: Validation and Safety (COMPLETE)
 
 ## Current Position
 
-Phase: 2 of 2 (Validation and Safety) — IN PROGRESS
-Plan: 2 of 3 in current phase — COMPLETE
-Status: 02-02 complete — ready for 02-03
-Last activity: 2026-02-23 — Completed 02-02 (Zod config validation)
+Phase: 2 of 2 (Validation and Safety) — COMPLETE
+Plan: 3 of 3 in current phase — COMPLETE
+Status: 02-03 complete — all phases and plans complete
+Last activity: 2026-02-23 — Completed 02-03 (content size guards)
 
-Progress: [████████████████████] 80% (4 of 5 total plans)
+Progress: [████████████████████████] 100% (5 of 5 total plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 8min
-- Total execution time: 31min
+- Total plans completed: 5
+- Average duration: 7min
+- Total execution time: 33min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-engine-robustness | 2/2 done | 25min | 12.5min |
-| 02-validation-and-safety | 2/3 done | 6min | 3min |
+| 02-validation-and-safety | 3/3 done | 8min | 2.7min |
 
 **Recent Trend:**
-- Last 5 plans: 15min, 10min, 2min, 4min
+- Last 5 plans: 15min, 10min, 2min, 4min, 2min
 - Trend: fast
 
 *Updated after each plan completion*
@@ -58,6 +58,10 @@ Recent decisions affecting current work:
 - ZodError wrapped into human-readable multi-line message with per-field issue list (02-02)
 - HTTPS enforcement uses .refine() on baseUrl — url() validates format, refine() enforces protocol (02-02)
 - index.ts wraps resolveReviewers in try/catch at startup — exits with code 1 on invalid config (02-02)
+- estimateTokens uses Math.ceil(length/4) heuristic — simple, no tokenizer dependency, sufficient for cost gating (02-03)
+- Rejection throws before any API call in review() — zero wasted work on oversized content (02-03)
+- warning field is optional on CrossReviewResult — backwards-compatible, undefined for normal content (02-03)
+- Thresholds as named constants (TOKEN_WARN_THRESHOLD, TOKEN_REJECT_THRESHOLD) — no magic numbers (02-03)
 
 ### Pending Todos
 
@@ -70,5 +74,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 02-02-PLAN.md — Zod config validation done, ready for 02-03
+Stopped at: Completed 02-03-PLAN.md — Content size guards done, all plans complete
 Resume file: None
