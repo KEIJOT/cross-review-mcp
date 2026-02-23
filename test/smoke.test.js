@@ -2,7 +2,7 @@
 // Tests structural correctness without requiring API keys
 
 import { buildAdversarialPrompt, buildConsensusPrompt, SCRUTINY_LEVELS, CONTENT_TYPES } from "../dist/prompts.js";
-import { CrossReviewEngine, parseVerdict, countHighConfidenceClaims, validateConfiguration, resolveReviewers } from "../dist/engine.js";
+import { CrossReviewEngine, parseVerdict, countHighConfidenceClaims, validateConfiguration, resolveReviewers, estimateTokens } from "../dist/engine.js";
 
 let passed = 0;
 let failed = 0;
@@ -307,6 +307,74 @@ console.log("\n── Zod Config Validation ──\n");
   }
   assert(threw, "VALID-05: Invalid provider enum value causes resolveReviewers to throw");
   assert(errorMsg.length > 0, `VALID-05: Invalid provider error has a descriptive message (got: "${errorMsg}")`);
+}
+
+console.log("\n── Content Size Guards ──\n");
+
+// a. estimateTokens basic
+{
+  const result = estimateTokens("hello world");
+  assert(result > 0, "estimateTokens: 'hello world' returns a positive number greater than 0");
+}
+
+// b. estimateTokens proportional
+{
+  const result = estimateTokens("a".repeat(4000));
+  assert(result >= 500 && result <= 1500, `estimateTokens: 4000 chars is within 500-1500 token range (got: ${result})`);
+}
+
+// c. SAFE-01: Warning on ~50K token content (~220K chars)
+{
+  const largeContent = "x".repeat(220_000);
+  const engineNoKey = new CrossReviewEngine([
+    { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SAFE01" },
+    { id: "r2", name: "Model B", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SAFE01_B" },
+  ]);
+  const result = await engineNoKey.review(largeContent, { includeConsensus: false });
+  assert(
+    typeof result.warning === "string" && result.warning.length > 0,
+    "SAFE-01: ~55K token content gets a non-empty warning field"
+  );
+  assert(
+    /token|size|large/i.test(result.warning || ""),
+    `SAFE-01: warning field includes 'token', 'size', or 'large' (got: "${result.warning}")`
+  );
+  assert(
+    Array.isArray(result.reviews),
+    "SAFE-01: reviews array is still present (review attempted despite warning)"
+  );
+}
+
+// d. SAFE-02: Rejection on ~100K token content (~440K chars)
+{
+  const hugeContent = "x".repeat(440_000);
+  const engineNoKey = new CrossReviewEngine([
+    { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SAFE02" },
+  ]);
+  let threw = false;
+  let errorMsg = "";
+  try {
+    await engineNoKey.review(hugeContent, { includeConsensus: false });
+  } catch (e) {
+    threw = true;
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+  assert(threw, "SAFE-02: ~110K token content throws an error before any API call");
+  assert(
+    /too large|exceeds|100|reject/i.test(errorMsg),
+    `SAFE-02: rejection error mentions 'too large', 'exceeds', '100', or 'reject' (got: "${errorMsg}")`
+  );
+}
+
+// e. SAFE-01: No warning on small content
+{
+  const smallContent = "x".repeat(100);
+  const engineNoKey = new CrossReviewEngine([
+    { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SMALL" },
+    { id: "r2", name: "Model B", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SMALL_B" },
+  ]);
+  const result = await engineNoKey.review(smallContent, { includeConsensus: false });
+  assert(result.warning === undefined, "SAFE-01: Small content (<50K tokens) has no warning field (undefined)");
 }
 
 console.log("\n── Results ──\n");

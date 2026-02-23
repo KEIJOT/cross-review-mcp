@@ -72,6 +72,7 @@ export interface CrossReviewResult {
     outputTokens: number;
     estimatedUsd: number;
   };
+  warning?: string;  // present when content triggers a soft size limit (SAFE-01)
 }
 
 const DEFAULT_REVIEWERS: ReviewerConfig[] = [
@@ -215,6 +216,10 @@ export function countHighConfidenceClaims(critique: string): number {
   const cleaned = critique.replace(/\*\*/g, "");
   const matches = cleaned.match(/Confidence:\s*HIGH/gi);
   return matches ? matches.length : 0;
+}
+
+export function estimateTokens(text: string): number {
+  return 0; // stub
 }
 
 export class CrossReviewEngine {
