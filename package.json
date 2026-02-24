@@ -1,6 +1,6 @@
 {
   "name": "cross-review-mcp",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Cross-LLM peer review protocol - adversarial validation across multiple language models",
   "type": "module",
   "main": "dist/index.js",
