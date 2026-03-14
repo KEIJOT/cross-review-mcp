@@ -1,9 +1,8 @@
 // src/config.ts - Configuration loading and validation (v0.5)
 import * as fs from 'fs';
-import * as yaml from 'yaml';
 import { z } from 'zod';
 
-const ReviewerConfigSchema = z.object({
+export const ReviewerConfigSchema = z.object({
   id: z.string().min(1),
   name: z.string().optional(),
   provider: z.enum(['openai', 'gemini', 'openai-compatible']),
@@ -11,7 +10,10 @@ const ReviewerConfigSchema = z.object({
   timeout_ms: z.number().int().min(1000).default(60000),
   slack_time_ms: z.number().int().min(0).default(0),
   execution_order: z.number().int().min(1).default(1),
+  baseUrl: z.string().optional(),
 });
+
+export type ReviewerConfig = z.infer<typeof ReviewerConfigSchema>;
 
 const ConfigSchema = z.object({
   reviewers: z.array(ReviewerConfigSchema).min(1),
@@ -33,12 +35,12 @@ const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
-export function loadConfig(configPath: string = './llmapi.config'): Config {
+export function loadConfig(configPath: string = './llmapi.config.json'): Config {
   if (!fs.existsSync(configPath)) {
-    throw new Error(\`Config file not found: \${configPath}\`);
+    throw new Error(`Config file not found: ${configPath}`);
   }
-  const yamlContent = fs.readFileSync(configPath, 'utf-8');
-  const parsed = yaml.parse(yamlContent);
+  const jsonContent = fs.readFileSync(configPath, 'utf-8');
+  const parsed = JSON.parse(jsonContent);
   return ConfigSchema.parse(parsed);
 }
 
@@ -48,7 +50,7 @@ export function validateConfig(config: unknown) {
     return { valid: true, errors: [] };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { valid: false, errors: error.issues.map(i => \`\${i.path.join('.')}: \${i.message}\`) };
+      return { valid: false, errors: error.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`) };
     }
     return { valid: false, errors: [String(error)] };
   }

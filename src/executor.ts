@@ -1,57 +1,96 @@
 // src/executor.ts - Review execution engine
-import { Config } from './config';
-import { ReviewRequest, ReviewResult } from './types';
-import { createProvider } from './providers';
+import { Config } from './config.js';
+import { ReviewRequest, ReviewResult, LLMResponse } from './types.js';
+import { createProvider, LLMProvider } from './providers.js';
+import { TokenTracker } from './tracking.js';
 
 export class ReviewExecutor {
-  private providers: Map<string, any> = new Map();
+  private config: Config;
+  private tracker: TokenTracker;
+  private providers: Map<string, LLMProvider> = new Map();
 
-  constructor(private config: Config) {
+  constructor(config: Config, tracker: TokenTracker) {
+    this.config = config;
+    this.tracker = tracker;
     this.initializeProviders();
   }
 
   private initializeProviders(): void {
     for (const reviewer of this.config.reviewers) {
-      try {
-        const provider = createProvider(reviewer);
-        this.providers.set(reviewer.id, provider);
-      } catch (error) {
-        console.error(`Failed to init ${reviewer.id}:`, error);
+      const envKey = `${reviewer.provider.toUpperCase()}_API_KEY`;
+      const apiKey = process.env[envKey];
+      if (!apiKey) {
+        throw new Error(`Missing API key for ${reviewer.id}: ${envKey}`);
       }
+      const provider = createProvider(reviewer, apiKey);
+      this.providers.set(reviewer.id, provider);
     }
   }
 
   async execute(request: ReviewRequest): Promise<ReviewResult> {
     const startTime = Date.now();
-    const reviews: Record<string, any> = {};
+    const responses = new Map<string, LLMResponse>();
 
-    for (const reviewer of this.config.reviewers) {
-      const provider = this.providers.get(reviewer.id);
-      if (!provider) continue;
+    // Execute all providers
+    const promises = Array.from(this.providers.entries()).map(async ([id, provider]) => {
+      try {
+        const response = await provider.sendRequest(request.content, '');
+        responses.set(id, response);
+      } catch (error) {
+        responses.set(id, {
+          modelId: id,
+          content: '',
+          inputTokens: 0,
+          outputTokens: 0,
+          finishReason: 'error',
+          error: String(error),
+          executionTimeMs: Date.now() - startTime,
+        });
+      }
+    });
 
-      console.log(`🔄 ${reviewer.id}...`);
-      const response = await provider.sendRequest(request.content);
-      reviews[reviewer.id] = response;
+    // Wait for all or fastest based on strategy
+    const strategy = request.strategy || this.config.execution.strategy;
+    if (strategy === 'wait_all') {
+      await Promise.all(promises);
+    } else if (strategy === 'fastest_2') {
+      await Promise.race(promises);
     }
 
-    return {
-      reviews,
-      consensus: { agreements: [], disagreements: {} },
-      executionTimeMs: Date.now() - startTime,
-      totalCost: this.calculateCost(reviews),
-    };
-  }
+    // Calculate totals
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let totalCost = 0;
 
-  private calculateCost(reviews: Record<string, any>): number {
-    let total = 0;
-    for (const [modelId, response] of Object.entries(reviews)) {
-      const costs = this.config.costs?.models?.[modelId];
-      if (costs && response.finishReason === 'stop') {
-        const inputCost = (response.inputTokens / 1000000) * costs.input_per_1m;
-        const outputCost = (response.outputTokens / 1000000) * costs.output_per_1m;
-        total += inputCost + outputCost;
+    for (const [id, response] of responses) {
+      totalInputTokens += response.inputTokens;
+      totalOutputTokens += response.outputTokens;
+      const modelCost = this.config.costs.models[response.modelId];
+      if (modelCost) {
+        totalCost += (response.inputTokens / 1000000) * modelCost.input_per_1m;
+        totalCost += (response.outputTokens / 1000000) * modelCost.output_per_1m;
       }
     }
-    return total;
+
+    const executionTimeMs = Date.now() - startTime;
+
+    // Log review
+    this.tracker.logReview({
+      timestamp: new Date().toISOString(),
+      content_hash: request.contentHash || '',
+      execution_strategy: strategy,
+      total_cost_usd: totalCost,
+      models: Array.from(responses.keys()),
+    });
+
+    return {
+      reviews: Object.fromEntries(responses),
+      consensus: {
+        agreements: [],
+        disagreements: {},
+      },
+      executionTimeMs,
+      totalCost,
+    };
   }
 }

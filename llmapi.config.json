@@ -1,0 +1,40 @@
+{
+  "reviewers": [
+    {
+      "id": "openai",
+      "name": "GPT-5.2",
+      "provider": "openai",
+      "model": "gpt-5.2",
+      "timeout_ms": 30000,
+      "execution_order": 1
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini Flash",
+      "provider": "gemini",
+      "model": "gemini-2.0-flash",
+      "timeout_ms": 30000,
+      "execution_order": 2
+    }
+  ],
+  "execution": {
+    "strategy": "wait_all",
+    "allow_partial_results": true
+  },
+  "costs": {
+    "models": {
+      "openai": {
+        "input_per_1m": 3,
+        "output_per_1m": 15
+      },
+      "gemini": {
+        "input_per_1m": 0.075,
+        "output_per_1m": 0.3
+      }
+    }
+  },
+  "tracking": {
+    "enabled": true,
+    "log_file": ".llmapi_usage.json"
+  }
+}

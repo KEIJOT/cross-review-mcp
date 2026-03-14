@@ -1,15 +1,6 @@
 // src/providers.ts - LLM Provider implementations (v0.5)
-import { ReviewerConfig } from './config';
-
-export interface LLMResponse {
-  modelId: string;
-  content: string;
-  inputTokens: number;
-  outputTokens: number;
-  finishReason: string;
-  error?: string;
-  executionTimeMs: number;
-}
+import { ReviewerConfig } from './config.js';
+import { LLMResponse } from './types.js';
 
 export interface LLMProvider {
   sendRequest(content: string, system?: string): Promise<LLMResponse>;
@@ -33,11 +24,11 @@ export class OpenAICompatibleProvider implements LLMProvider {
   async sendRequest(content: string, system?: string): Promise<LLMResponse> {
     const startTime = Date.now();
     try {
-      const response = await fetch(\`\${this.baseUrl}/chat/completions\`, {
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': \`Bearer \${this.apiKey}\`,
+          'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
           model: this.model,
@@ -50,29 +41,29 @@ export class OpenAICompatibleProvider implements LLMProvider {
         }),
       });
 
+      const data = await response.json() as any;
+      const executionTimeMs = Date.now() - startTime;
+
       if (!response.ok) {
-        const error = await response.text();
         return {
           modelId: this.id,
           content: '',
           inputTokens: 0,
           outputTokens: 0,
           finishReason: 'error',
-          error: \`API error: \${response.status}\`,
-          executionTimeMs: Date.now() - startTime,
+          error: data.error?.message || 'Unknown API error',
+          executionTimeMs,
         };
       }
 
-      const data = await response.json();
-      const message = data.choices?.[0]?.message?.content || '';
-
+      const choice = data.choices[0];
       return {
         modelId: this.id,
-        content: message,
-        inputTokens: data.usage?.prompt_tokens || 0,
-        outputTokens: data.usage?.completion_tokens || 0,
-        finishReason: data.choices?.[0]?.finish_reason || 'stop',
-        executionTimeMs: Date.now() - startTime,
+        content: choice.message.content,
+        inputTokens: data.usage.prompt_tokens,
+        outputTokens: data.usage.completion_tokens,
+        finishReason: 'stop',
+        executionTimeMs,
       };
     } catch (error) {
       return {
@@ -81,7 +72,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
         inputTokens: 0,
         outputTokens: 0,
         finishReason: 'error',
-        error: error instanceof Error ? error.message : String(error),
+        error: String(error),
         executionTimeMs: Date.now() - startTime,
       };
     }
@@ -105,16 +96,23 @@ export class GeminiProvider implements LLMProvider {
     const startTime = Date.now();
     try {
       const response = await fetch(
-        \`https://generativelanguage.googleapis.com/v1beta/models/\${this.model}:generateContent?key=\${this.apiKey}\`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             system_instruction: system,
-            contents: { parts: [{ text: content }] },
+            contents: [{ parts: [{ text: content }] }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2000,
+            },
           }),
         }
       );
+
+      const data = await response.json() as any;
+      const executionTimeMs = Date.now() - startTime;
 
       if (!response.ok) {
         return {
@@ -123,21 +121,20 @@ export class GeminiProvider implements LLMProvider {
           inputTokens: 0,
           outputTokens: 0,
           finishReason: 'error',
-          error: \`API error: \${response.status}\`,
-          executionTimeMs: Date.now() - startTime,
+          error: data.error?.message || 'Gemini API error',
+          executionTimeMs,
         };
       }
 
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
+      const part = data.candidates[0].content.parts[0];
+      const usage = data.usageMetadata;
       return {
         modelId: this.id,
-        content: text,
-        inputTokens: data.usageMetadata?.promptTokenCount || 0,
-        outputTokens: data.usageMetadata?.candidatesTokenCount || 0,
+        content: part.text,
+        inputTokens: usage.promptTokenCount,
+        outputTokens: usage.candidatesTokenCount,
         finishReason: 'stop',
-        executionTimeMs: Date.now() - startTime,
+        executionTimeMs,
       };
     } catch (error) {
       return {
@@ -146,29 +143,21 @@ export class GeminiProvider implements LLMProvider {
         inputTokens: 0,
         outputTokens: 0,
         finishReason: 'error',
-        error: error instanceof Error ? error.message : String(error),
+        error: String(error),
         executionTimeMs: Date.now() - startTime,
       };
     }
   }
 }
 
-export function createProvider(config: ReviewerConfig): LLMProvider {
-  let apiKey = '';
-
-  if (config.provider === 'openai') {
-    apiKey = process.env.OPENAI_API_KEY || '';
-    if (!apiKey) throw new Error(\`Missing OPENAI_API_KEY for \${config.id}\`);
-    return new OpenAICompatibleProvider(config, apiKey);
-  } else if (config.provider === 'gemini') {
-    apiKey = process.env.GEMINI_API_KEY || '';
-    if (!apiKey) throw new Error(\`Missing GEMINI_API_KEY for \${config.id}\`);
-    return new GeminiProvider(config, apiKey);
-  } else if (config.provider === 'openai-compatible') {
-    apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || '';
-    if (!apiKey) throw new Error(\`Missing API key for \${config.id}\`);
-    return new OpenAICompatibleProvider(config, apiKey);
+export function createProvider(config: ReviewerConfig, apiKey: string): LLMProvider {
+  switch (config.provider) {
+    case 'openai':
+    case 'openai-compatible':
+      return new OpenAICompatibleProvider(config, apiKey);
+    case 'gemini':
+      return new GeminiProvider(config, apiKey);
+    default:
+      throw new Error(`Unknown provider: ${config.provider}`);
   }
-
-  throw new Error(\`Unknown provider: \${config.provider}\`);
 }
