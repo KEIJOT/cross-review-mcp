@@ -1,5 +1,12 @@
 # Cross-Review MCP
 
+![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-blue)
+![Python](https://img.shields.io/badge/python-46%25-blue)
+![JavaScript](https://img.shields.io/badge/javascript-39%25-yellow)
+![TypeScript](https://img.shields.io/badge/typescript-15%25-blue)
+
 **Get a second opinion from competing AIs.**
 
 Your AI assistant has blind spots. Every model does. Cross-review sends your content to multiple LLMs with deliberately critical prompts, then synthesizes where they agree something is wrong.
@@ -201,6 +208,21 @@ Each review costs approximately $0.01–0.07 per model depending on content leng
 
 The adversarial prompts require models to distinguish between what they *know* is wrong (HIGH confidence) and what they *suspect* might be wrong (MEDIUM/LOW). This reduces false positives compared to naive "find problems" prompting.
 
+## Documentation
+
+- [QUICK_START.md](docs/QUICK_START.md) — 5-minute setup guide
+- [INSTALLATION.md](docs/INSTALLATION.md) — Detailed installation
+- [CONFIGURATION.md](docs/CONFIGURATION.md) — Configuration reference
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — System design and data flow
+- [SETUP_OPENAI.md](docs/SETUP_OPENAI.md) — OpenAI configuration
+- [SETUP_GEMINI.md](docs/SETUP_GEMINI.md) — Google Gemini configuration
+- [SETUP_DEEPSEEK.md](docs/SETUP_DEEPSEEK.md) — DeepSeek configuration
+- [PROVIDER_COMPARISON.md](docs/PROVIDER_COMPARISON.md) — Provider feature matrix
+- [TESTING.md](docs/TESTING.md) — Testing strategy and examples
+- [DEBUGGING.md](docs/DEBUGGING.md) — Troubleshooting guide
+- [FAQ.md](docs/FAQ.md) — Frequently asked questions
+- [MCP_INTEGRATION.md](docs/MCP_INTEGRATION.md) — MCP client integration
+
 ## FAQ
 
 **Why not just ask one AI to review twice?**
@@ -221,4 +243,9 @@ MIT — [BoxSight LLC](https://boxsight.ai)
 
 ## Contributing
 
-Issues and PRs welcome. If you find a bug, please include the error message and your Node.js version.
+Issues and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+
+For security details, see [SECURITY.md](SECURITY.md).
+

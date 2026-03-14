@@ -6,3 +6,6 @@ dist/
 cross_review.py
 *.pyc
 __pycache__/
+
+# Deploy script (local-only, never push to GitHub)
+deploy.sh

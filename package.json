@@ -1,7 +1,7 @@
 {
   "name": "cross-review-mcp",
-  "version": "0.4.1",
-  "description": "Cross-LLM peer review protocol - adversarial validation across multiple language models",
+  "version": "0.5.0",
+  "description": "Cross-LLM peer review - adversarial validation across multiple language models",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -9,7 +9,9 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -25,17 +27,23 @@
     "llm",
     "peer-review",
     "cross-validation",
+    "consensus",
+    "adversarial-testing",
     "claude",
     "gpt",
     "gemini",
     "ai"
   ],
-  "author": "Keijo Tuominen",
+  "author": "Keijo Tuominen <keijo@boxsight.ai>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ktuominen/cross-review-mcp.git"
+    "url": "git+https://github.com/KEIJOT/cross-review-mcp.git"
   },
+  "bugs": {
+    "url": "https://github.com/KEIJOT/cross-review-mcp/issues"
+  },
+  "homepage": "https://github.com/KEIJOT/cross-review-mcp#readme",
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
