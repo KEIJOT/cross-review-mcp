@@ -1,49 +1,83 @@
-# Security
+# Security Posture
 
-## What cross-review accesses
+## What cross-review-mcp Does NOT Do
 
-cross-review is a **read-only, outbound-only** MCP server. It:
+- ❌ Access your local filesystem
+- ❌ Execute any code from reviewed content
+- ❌ Open inbound network ports
+- ❌ Store or log review content beyond the current session
+- ❌ Modify your system outside the MCP protocol
+- ❌ Require authentication or send identifying information
 
-- Reads content you send for review (text only, in memory)
-- Sends that content to OpenAI and Google Gemini APIs for analysis
-- Returns the results to your MCP client
+## What It DOES Do
 
-It does **not**:
+✅ Sends your review content to external LLM APIs (OpenAI, Google, DeepSeek, Mistral, etc.)
+✅ Communicates over HTTPS only to configured provider APIs
+✅ Tracks token usage and cost locally (not uploaded anywhere)
+✅ Retains API keys only in your local .env file or MCP configuration (never transmitted, never logged)
+✅ Returns structured critique in plain text (no code execution, no side effects)
 
-- Access your filesystem
-- Open any network ports (stdio transport only)
-- Store or log reviewed content
-- Persist any data between sessions
-- Execute any code from reviewed content
+## Data Retention & Privacy
 
-## API key handling
+### What is NOT stored
+- No content is persisted after the review completes
+- No cookies or tracking
+- No session logs containing your content
+- No analytics about what you reviewed
 
-Your OpenAI and Gemini API keys are configured in your MCP client's config file and passed as environment variables at runtime. cross-review never stores, logs, or transmits your keys anywhere except directly to the respective LLM provider APIs.
+### What IS stored locally
+- API keys in your .env or MCP config (your responsibility to protect)
+- Cost/token tallies in memory during this session only
+- Model response text, returned to you in plaintext
 
-**Recommendation:** Rotate your API keys periodically and use keys with appropriate spending limits set in your OpenAI and Google AI dashboards.
+### What IS sent to providers
+Your review content is transmitted to:
+- OpenAI (GPT models) — follows OpenAI's privacy policy
+- Google (Gemini models) — follows Google's privacy policy
+- DeepSeek — based in China; **may** use prompts for training
+- Mistral — follows Mistral's privacy policy
+- OpenRouter proxy — free tier **may** use prompts for training
 
-## Content privacy
+**Free tier models** (DeepSeek, OpenRouter) explicitly state they may use your prompts to improve their models.
 
-Content you submit for review is sent to third-party LLM APIs (OpenAI, Google). Their data handling policies apply:
+## API Key Security
 
-- [OpenAI API Data Usage Policy](https://openai.com/policies/api-data-usage-policies)
-- [Google AI Terms of Service](https://ai.google.dev/gemini-api/terms)
+Store keys safely:
+- ✅ Use a .env file (add to .gitignore)
+- ✅ Use OS environment variables
+- ✅ Use your MCP client's secure configuration
+- ❌ Do NOT hardcode keys in code
+- ❌ Do NOT commit .env to version control
 
-Do not submit content containing secrets, credentials, PII, or classified information unless you've reviewed these providers' data handling terms.
+## Network Security
 
-## Reporting a vulnerability
+Outbound connections ONLY to:
+- api.openai.com (OpenAI)
+- generativelanguage.googleapis.com (Google Gemini)
+- api.deepseek.com (DeepSeek)
+- api.mistral.ai (Mistral)
+- openrouter.ai (OpenRouter proxy)
 
-Email: ketuomin@hotmail.com
+All connections use HTTPS with certificate validation.
 
-We will acknowledge reports within 48 hours and aim to resolve critical issues within 14 days.
+## Responsible Disclosure
 
-## Supply chain
+If you discover a security vulnerability:
+1. Do NOT open a public GitHub issue
+2. Email: keijo@boxsight.ai
+3. Include: Severity, reproducible steps, suggested fix
+4. Expect: Response within 48 hours
 
-Dependencies are minimal and intentional:
+## Compliance
 
-- `@modelcontextprotocol/sdk` — Official MCP protocol SDK
-- `openai` — Official OpenAI Node.js client
-- `@google/generative-ai` — Official Google Generative AI client
-- `zod` — Input validation
+This tool does **not** implement:
+- ❌ HIPAA compliance (don't send healthcare data)
+- ❌ GDPR-specific features
+- ❌ SOC2 attestation
+- ❌ PCI-DSS
 
-All dependencies use exact versions locked in `package-lock.json`.
+---
+
+**Last Updated:** 2026-03-14
+**Version:** v0.4.1+
+**License:** MIT
