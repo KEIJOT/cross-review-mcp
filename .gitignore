@@ -48,8 +48,7 @@ api-keys.txt
 secrets/
 credentials.json
 
-# Generated docs
-docs/*.html
+# Generated docs (PDFs removed — now using HTML/SVG)
 
 # Claude Code
 .claude/

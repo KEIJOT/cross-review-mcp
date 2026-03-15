@@ -4,7 +4,18 @@ Complete documentation for cross-review-mcp v0.6.0.
 
 ---
 
-## 📋 Documentation Guide
+## Visual Documentation (HTML/SVG)
+
+Interactive, visual documentation — designed so anyone can understand the project without prior engineering knowledge. Enable [GitHub Pages](https://pages.github.com/) on this repo to view them rendered, or open locally.
+
+- **[Documentation Home](index.html)** — Landing page with animated architecture diagram
+- **[User Guide](guide.html)** — What this is, how to install, how to use. Written for humans, not engineers
+- **[Architecture](architecture.html)** — System design with interactive SVG diagrams, component cards, data flow pipeline, network topology
+- **[Project Status](status.html)** — What works, what's not wired, what's missing — honest visual status of every component
+
+---
+
+## Markdown Documentation
 
 ### **v0.6.0 (Current Release)**
 

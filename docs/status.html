@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Status — Cross-Review MCP</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --blue: #3b82f6; --blue-light: #60a5fa; --blue-bg: rgba(59,130,246,0.1);
+    --green: #10b981; --green-light: #34d399; --green-bg: rgba(16,185,129,0.1);
+    --amber: #f59e0b; --amber-light: #fbbf24; --amber-bg: rgba(245,158,11,0.1);
+    --red: #ef4444; --red-light: #f87171; --red-bg: rgba(239,68,68,0.1);
+    --purple: #a855f7; --purple-light: #c084fc; --purple-bg: rgba(168,85,247,0.1);
+    --navy: #0f172a; --slate-700: #334155; --slate-400: #94a3b8; --slate-300: #cbd5e1;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0f172a; color: #e2e8f0;
+    line-height: 1.7; font-size: 16px;
+  }
+
+  .topnav {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: rgba(15,23,42,0.9); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(51,65,85,0.5);
+    z-index: 100; padding: 0.75rem 2rem;
+    display: flex; align-items: center; gap: 2rem;
+  }
+  .topnav-brand { font-weight: 800; font-size: 0.95rem; color: #e2e8f0; text-decoration: none; white-space: nowrap; }
+  .topnav-links { display: flex; gap: 0.25rem; }
+  .topnav-links a { color: #94a3b8; text-decoration: none; font-size: 0.85rem; font-weight: 500; padding: 0.4rem 0.75rem; border-radius: 6px; transition: all 0.2s; }
+  .topnav-links a:hover { background: rgba(148,163,184,0.1); color: #e2e8f0; }
+  .topnav-links a.active { background: rgba(168,85,247,0.15); color: #c084fc; }
+
+  main { max-width: 860px; margin: 0 auto; padding: 6rem 2rem 4rem; }
+
+  .page-header { text-align: center; margin-bottom: 4rem; padding: 3rem 0; }
+  .page-header .badge { display: inline-block; padding: 0.3rem 1rem; background: var(--purple-bg); border: 1px solid rgba(168,85,247,0.2); border-radius: 99px; font-size: 0.8rem; color: var(--purple-light); font-weight: 600; margin-bottom: 1.5rem; }
+  .page-header h1 { font-size: clamp(2rem,5vw,3rem); font-weight: 900; letter-spacing: -0.03em; margin-bottom: 1rem; background: linear-gradient(135deg, #c084fc, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .page-header p { font-size: 1.15rem; color: var(--slate-400); max-width: 600px; margin: 0 auto; }
+
+  section { margin-bottom: 3.5rem; }
+  h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 1rem; }
+  p { margin-bottom: 1rem; color: #cbd5e1; }
+
+  /* Visual Status Overview (SVG) */
+  .diagram {
+    background: rgba(30,41,59,0.5); border: 1px solid var(--slate-700);
+    border-radius: 16px; padding: 2rem; margin: 2rem 0; text-align: center;
+  }
+  .diagram svg { width: 100%; max-width: 700px; height: auto; }
+  .diagram-caption { text-align: center; font-size: 0.85rem; color: var(--slate-400); margin-top: 1rem; font-style: italic; }
+
+  /* Status item rows */
+  .status-list { display: flex; flex-direction: column; gap: 0.5rem; margin: 1.5rem 0; }
+
+  .status-item {
+    display: flex; align-items: center; gap: 1rem;
+    background: rgba(30,41,59,0.4); border: 1px solid var(--slate-700);
+    border-radius: 10px; padding: 0.85rem 1.25rem; transition: border-color 0.2s;
+  }
+  .status-item:hover { border-color: var(--slate-400); }
+
+  .status-dot {
+    flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%;
+  }
+  .status-dot.green { background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.4); }
+  .status-dot.amber { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.4); }
+  .status-dot.red { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+
+  .status-name {
+    flex: 1; font-weight: 600; font-size: 0.95rem;
+  }
+
+  .status-label {
+    font-size: 0.8rem; font-weight: 600; padding: 0.2rem 0.6rem;
+    border-radius: 6px; white-space: nowrap;
+  }
+  .label-working { background: var(--green-bg); color: var(--green-light); }
+  .label-not-wired { background: var(--amber-bg); color: var(--amber-light); }
+  .label-stub { background: var(--red-bg); color: var(--red-light); }
+  .label-missing { background: rgba(100,116,139,0.15); color: #94a3b8; }
+
+  .status-note {
+    font-size: 0.8rem; color: var(--slate-400);
+    max-width: 280px; text-align: right;
+  }
+
+  /* Summary cards */
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem; margin: 2rem 0;
+  }
+
+  .summary-card {
+    background: rgba(30,41,59,0.5); border: 1px solid var(--slate-700);
+    border-radius: 14px; padding: 1.5rem; text-align: center;
+  }
+
+  .summary-card .big-number {
+    font-size: 2.5rem; font-weight: 900; line-height: 1; margin-bottom: 0.25rem;
+  }
+
+  .summary-card .label {
+    font-size: 0.85rem; color: var(--slate-400); font-weight: 500;
+  }
+
+  /* Verdict box */
+  .verdict-box {
+    border-radius: 14px; padding: 2rem; margin: 2rem 0;
+    background: rgba(30,41,59,0.6);
+    border: 1px solid var(--slate-700);
+  }
+
+  .verdict-box h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 1rem; }
+
+  .verdict-item {
+    padding: 0.75rem 0; border-bottom: 1px solid rgba(51,65,85,0.3);
+  }
+  .verdict-item:last-child { border-bottom: none; }
+  .verdict-item strong { color: #e2e8f0; }
+  .verdict-item p { margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--slate-400); }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 1.5rem; flex-wrap: wrap;
+    padding: 1rem 0; margin-bottom: 1rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--slate-400); }
+
+  @media print {
+    .topnav { display: none; } main { padding-top: 0; }
+    body { background: white; color: #1e293b; } p { color: #334155; }
+  }
+  @media (max-width: 640px) {
+    main { padding: 5rem 1rem 2rem; }
+    .status-note { display: none; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <a href="index.html" class="topnav-brand">Cross-Review MCP</a>
+  <div class="topnav-links">
+    <a href="guide.html">User Guide</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="status.html" class="active">Status</a>
+  </div>
+</nav>
+
+<main>
+  <div class="page-header">
+    <span class="badge">Project Status</span>
+    <h1>What Works &amp; What Doesn't</h1>
+    <p>An honest look at every component. Green means working, amber means code exists but isn't connected, red means not done yet.</p>
+  </div>
+
+  <!-- Quick Summary -->
+  <section>
+    <div class="summary-grid">
+      <div class="summary-card" style="border-top: 3px solid var(--green);">
+        <div class="big-number" style="color: var(--green-light);">8</div>
+        <div class="label">Working</div>
+      </div>
+      <div class="summary-card" style="border-top: 3px solid var(--amber);">
+        <div class="big-number" style="color: var(--amber-light);">6</div>
+        <div class="label">Code Exists, Not Wired</div>
+      </div>
+      <div class="summary-card" style="border-top: 3px solid var(--red);">
+        <div class="big-number" style="color: var(--red-light);">4</div>
+        <div class="label">Stub / Missing</div>
+      </div>
+      <div class="summary-card" style="border-top: 3px solid var(--blue);">
+        <div class="big-number" style="color: var(--blue-light);">v0.6.0</div>
+        <div class="label">Current Version</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Visual Status Diagram -->
+  <section>
+    <h2>Integration Status Map</h2>
+
+    <div class="diagram">
+      <svg viewBox="0 0 700 360" fill="none">
+        <!-- Title -->
+        <text x="350" y="22" text-anchor="middle" fill="#e2e8f0" font-size="13" font-weight="800">Integration Status (v0.6.0)</text>
+
+        <!-- Central column - working components -->
+        <!-- MCP Server -->
+        <rect x="250" y="40" width="200" height="40" rx="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="2"/>
+        <circle cx="270" cy="60" r="6" fill="#10b981"/>
+        <text x="360" y="64" text-anchor="middle" fill="#34d399" font-size="11" font-weight="700">MCP Server</text>
+        <text x="360" y="76" text-anchor="middle" fill="#475569" font-size="7">index.ts</text>
+
+        <!-- Tool Handler -->
+        <rect x="250" y="90" width="200" height="40" rx="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="2"/>
+        <circle cx="270" cy="110" r="6" fill="#10b981"/>
+        <text x="360" y="114" text-anchor="middle" fill="#34d399" font-size="11" font-weight="700">Tool Handler</text>
+        <text x="360" y="126" text-anchor="middle" fill="#475569" font-size="7">dev-guidance.ts</text>
+
+        <!-- Review Executor -->
+        <rect x="230" y="145" width="240" height="50" rx="10" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="2.5"/>
+        <circle cx="252" cy="170" r="6" fill="#10b981"/>
+        <text x="360" y="168" text-anchor="middle" fill="#34d399" font-size="13" font-weight="800">ReviewExecutor</text>
+        <text x="360" y="184" text-anchor="middle" fill="#475569" font-size="8">executor.ts &mdash; the central workhorse</text>
+
+        <!-- Provider Layer -->
+        <rect x="250" y="210" width="200" height="40" rx="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="2"/>
+        <circle cx="270" cy="230" r="6" fill="#10b981"/>
+        <text x="360" y="234" text-anchor="middle" fill="#34d399" font-size="11" font-weight="700">Provider Layer</text>
+        <text x="360" y="246" text-anchor="middle" fill="#475569" font-size="7">providers.ts</text>
+
+        <!-- Consensus -->
+        <rect x="250" y="260" width="200" height="40" rx="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="2"/>
+        <circle cx="270" cy="280" r="6" fill="#10b981"/>
+        <text x="360" y="284" text-anchor="middle" fill="#34d399" font-size="11" font-weight="700">Consensus</text>
+        <text x="360" y="296" text-anchor="middle" fill="#475569" font-size="7">consensus-algorithm.ts</text>
+
+        <!-- Left column - NOT WIRED (amber) -->
+        <rect x="10" y="90" width="160" height="36" rx="7" fill="rgba(245,158,11,0.08)" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 4"/>
+        <circle cx="28" cy="108" r="5" fill="#f59e0b"/>
+        <text x="100" y="112" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Cache Manager</text>
+
+        <rect x="10" y="135" width="160" height="36" rx="7" fill="rgba(245,158,11,0.08)" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 4"/>
+        <circle cx="28" cy="153" r="5" fill="#f59e0b"/>
+        <text x="100" y="157" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Rate Limiter</text>
+
+        <rect x="10" y="180" width="160" height="36" rx="7" fill="rgba(245,158,11,0.08)" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 4"/>
+        <circle cx="28" cy="198" r="5" fill="#f59e0b"/>
+        <text x="100" y="202" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Circuit Breaker</text>
+
+        <!-- Right column - NOT WIRED (amber) -->
+        <rect x="530" y="90" width="160" height="36" rx="7" fill="rgba(245,158,11,0.08)" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 4"/>
+        <circle cx="548" cy="108" r="5" fill="#f59e0b"/>
+        <text x="620" y="112" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Cost Manager</text>
+
+        <rect x="530" y="135" width="160" height="36" rx="7" fill="rgba(245,158,11,0.08)" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 4"/>
+        <circle cx="548" cy="153" r="5" fill="#f59e0b"/>
+        <text x="620" y="157" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Token Tracker</text>
+
+        <rect x="530" y="180" width="160" height="36" rx="7" fill="rgba(239,68,68,0.08)" stroke="#ef4444" stroke-width="1" stroke-dasharray="4 4"/>
+        <circle cx="548" cy="198" r="5" fill="#ef4444"/>
+        <text x="620" y="202" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">Persistence</text>
+
+        <!-- Dashed connection lines (not wired) -->
+        <line x1="170" y1="108" x2="250" y2="160" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 3" opacity="0.3"/>
+        <line x1="170" y1="153" x2="250" y2="170" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 3" opacity="0.3"/>
+        <line x1="170" y1="198" x2="250" y2="175" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 3" opacity="0.3"/>
+        <line x1="530" y1="108" x2="450" y2="160" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 3" opacity="0.3"/>
+        <line x1="530" y1="153" x2="450" y2="170" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 3" opacity="0.3"/>
+        <line x1="530" y1="198" x2="450" y2="175" stroke="#ef4444" stroke-width="1" stroke-dasharray="3 3" opacity="0.3"/>
+
+        <!-- Solid connection lines (working) -->
+        <line x1="350" y1="80" x2="350" y2="90" stroke="#10b981" stroke-width="1.5"/>
+        <line x1="350" y1="130" x2="350" y2="145" stroke="#10b981" stroke-width="1.5"/>
+        <line x1="350" y1="195" x2="350" y2="210" stroke="#10b981" stroke-width="1.5"/>
+        <line x1="350" y1="250" x2="350" y2="260" stroke="#10b981" stroke-width="1.5"/>
+
+        <!-- Legend -->
+        <circle cx="170" cy="335" r="5" fill="#10b981"/>
+        <text x="180" y="339" fill="#94a3b8" font-size="8">Working</text>
+        <circle cx="280" cy="335" r="5" fill="#f59e0b"/>
+        <text x="290" y="339" fill="#94a3b8" font-size="8">Not Wired</text>
+        <circle cx="380" cy="335" r="5" fill="#ef4444"/>
+        <text x="390" y="339" fill="#94a3b8" font-size="8">Stub / Missing</text>
+        <line x1="460" y1="335" x2="490" y2="335" stroke="#10b981" stroke-width="1.5"/>
+        <text x="497" y="339" fill="#94a3b8" font-size="8">Active</text>
+        <line x1="540" y1="335" x2="570" y2="335" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="577" y="339" fill="#94a3b8" font-size="8">Disconnected</text>
+      </svg>
+      <p class="diagram-caption">Solid lines = working data flow. Dashed lines = code exists but isn't connected to the executor yet.</p>
+    </div>
+  </section>
+
+  <!-- Detailed Status List: Working -->
+  <section>
+    <h2 style="color: var(--green-light);">What's Working</h2>
+    <p>These components are fully functional and tested:</p>
+
+    <div class="status-list">
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">MCP Server</span>
+        <span class="status-label label-working">WORKING</span>
+        <span class="status-note">4 tools registered, MCP protocol compliant</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">Review Executor</span>
+        <span class="status-label label-working">WORKING</span>
+        <span class="status-note">Parallel execution of all providers</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">Consensus Algorithm</span>
+        <span class="status-label label-working">WORKING</span>
+        <span class="status-note">Majority diagnosis + divergence detection</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">Dev Guidance Tool</span>
+        <span class="status-label label-working">WORKING</span>
+        <span class="status-note">Prompt formatting + response parsing</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">HTTP Server + Dashboard</span>
+        <span class="status-label label-working">WORKING</span>
+        <span class="status-note">Express + SSE + StreamableHTTP</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">Event Bus</span>
+        <span class="status-label label-working">WORKING</span>
+        <span class="status-note">Real-time events to dashboard</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">TypeScript Build</span>
+        <span class="status-label label-working">WORKING</span>
+        <span class="status-note">npm run build succeeds</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">Tests (Smoke + Live)</span>
+        <span class="status-label label-working">WORKING</span>
+        <span class="status-note">30+ assertions, no API keys needed</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Detailed Status List: Not Wired -->
+  <section>
+    <h2 style="color: var(--amber-light);">Code Exists, Not Connected</h2>
+    <p>These modules have been written but aren't plugged into the main execution pipeline yet. The code is there &mdash; it just needs to be wired in:</p>
+
+    <div class="status-list">
+      <div class="status-item">
+        <span class="status-dot amber"></span>
+        <span class="status-name">Cache Manager</span>
+        <span class="status-label label-not-wired">NOT WIRED</span>
+        <span class="status-note">Executor doesn't check/write cache</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot amber"></span>
+        <span class="status-name">Cost Manager</span>
+        <span class="status-label label-not-wired">NOT WIRED</span>
+        <span class="status-note">Executor doesn't call trackUsage()</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot amber"></span>
+        <span class="status-name">Rate Limiter</span>
+        <span class="status-label label-not-wired">NOT WIRED</span>
+        <span class="status-note">Executor doesn't throttle requests</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot amber"></span>
+        <span class="status-name">Circuit Breaker</span>
+        <span class="status-label label-not-wired">NOT WIRED</span>
+        <span class="status-note">Executor doesn't use fail-fast</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot amber"></span>
+        <span class="status-name">Retry Logic</span>
+        <span class="status-label label-not-wired">NOT WIRED</span>
+        <span class="status-note">retryWithBackoff() exists but unused</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot amber"></span>
+        <span class="status-name">Graceful Degradation</span>
+        <span class="status-label label-not-wired">NOT WIRED</span>
+        <span class="status-note">Executor throws on missing key</span>
+      </div>
+    </div>
+
+    <div style="background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.15); border-radius: 12px; padding: 1.25rem; margin-top: 1rem;">
+      <p style="margin: 0; color: var(--slate-400); font-size: 0.9rem;"><strong style="color: var(--amber-light);">What this means:</strong> The core pipeline works end-to-end without these modules. They're "nice to have" features &mdash; caching saves money, rate limiting prevents API abuse, circuit breaking handles outages gracefully. The system works fine without them, it's just less optimized.</p>
+    </div>
+  </section>
+
+  <!-- Detailed Status List: Missing -->
+  <section>
+    <h2 style="color: var(--red-light);">Not Built Yet</h2>
+    <p>These features haven't been implemented:</p>
+
+    <div class="status-list">
+      <div class="status-item">
+        <span class="status-dot red"></span>
+        <span class="status-name">Persistence (SQLite)</span>
+        <span class="status-label label-stub">STUB</span>
+        <span class="status-note">All methods return empty &mdash; no-ops</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot red"></span>
+        <span class="status-name">Weighted Voting</span>
+        <span class="status-label label-missing">MISSING</span>
+        <span class="status-note">All models weighted equally</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot red"></span>
+        <span class="status-name">Cost Optimization</span>
+        <span class="status-label label-missing">MISSING</span>
+        <span class="status-note">No cheaper-model fallback</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot red"></span>
+        <span class="status-name">VS Code Extension</span>
+        <span class="status-label label-missing">NOT STARTED</span>
+        <span class="status-note">&mdash;</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Overall Verdict -->
+  <section>
+    <h2>Overall Verdict</h2>
+
+    <div class="verdict-box" style="border-left: 4px solid var(--green);">
+      <h3 style="color: var(--green-light);">The core pipeline works end-to-end.</h3>
+
+      <div class="verdict-item">
+        <strong>MCP server, executor, consensus, dev guidance, dashboard &mdash; all functional and tested.</strong>
+        <p>You can install it, ask questions, get 5-model consensus answers, and see real-time results on the dashboard. The main product works.</p>
+      </div>
+
+      <div class="verdict-item">
+        <strong style="color: var(--amber-light);">Supporting modules need wiring.</strong>
+        <p>Cache, cost tracking, rate limiting, circuit breaker, and retry logic all exist as code but aren't integrated into the executor. This means every question costs money (no caching), there's no spending protection (no rate limiting), and if a provider is down, there's no smart fallback (no circuit breaker).</p>
+      </div>
+
+      <div class="verdict-item">
+        <strong style="color: var(--red-light);">Persistence is a stub.</strong>
+        <p>The PersistenceManager has the right interfaces but all methods return empty results. History doesn't survive server restarts.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Documentation Status -->
+  <section>
+    <h2>Documentation Status</h2>
+    <div class="status-list">
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">User Guide</span>
+        <span class="status-label label-working">HTML/SVG</span>
+        <span class="status-note"><a href="guide.html" style="color: var(--blue-light); text-decoration: none;">guide.html</a></span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">Architecture</span>
+        <span class="status-label label-working">HTML/SVG</span>
+        <span class="status-note"><a href="architecture.html" style="color: var(--blue-light); text-decoration: none;">architecture.html</a></span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">Project Status</span>
+        <span class="status-label label-working">HTML/SVG</span>
+        <span class="status-note"><a href="status.html" style="color: var(--blue-light); text-decoration: none;">status.html</a> (you're here)</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">README</span>
+        <span class="status-label label-working">Markdown</span>
+        <span class="status-note">docs/README.md</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot green"></span>
+        <span class="status-name">Quick Start</span>
+        <span class="status-label label-working">Markdown</span>
+        <span class="status-note">docs/QUICK_START.md</span>
+      </div>
+    </div>
+  </section>
+
+  <footer style="text-align: center; padding: 3rem 0; color: #475569; font-size: 0.85rem; border-top: 1px solid #1e293b;">
+    <p><a href="index.html" style="color: #64748b; text-decoration: none;">&#x2190; Back to docs home</a></p>
+    <p style="margin-top: 0.5rem;">Cross-Review MCP v0.6.0 &middot; March 2026</p>
+  </footer>
+</main>
+</body>
+</html>

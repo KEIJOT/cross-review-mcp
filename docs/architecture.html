@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture — Cross-Review MCP</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --blue: #3b82f6; --blue-light: #60a5fa; --blue-bg: rgba(59,130,246,0.1);
+    --green: #10b981; --green-light: #34d399; --green-bg: rgba(16,185,129,0.1);
+    --amber: #f59e0b; --amber-light: #fbbf24; --amber-bg: rgba(245,158,11,0.1);
+    --red: #ef4444; --red-light: #f87171; --red-bg: rgba(239,68,68,0.1);
+    --purple: #a855f7; --purple-light: #c084fc; --purple-bg: rgba(168,85,247,0.1);
+    --cyan: #06b6d4; --cyan-light: #22d3ee;
+    --navy: #0f172a; --slate-700: #334155; --slate-400: #94a3b8; --slate-300: #cbd5e1;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+
+  .topnav {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: rgba(15,23,42,0.9); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(51,65,85,0.5);
+    z-index: 100; padding: 0.75rem 2rem;
+    display: flex; align-items: center; gap: 2rem;
+  }
+  .topnav-brand { font-weight: 800; font-size: 0.95rem; color: #e2e8f0; text-decoration: none; white-space: nowrap; }
+  .topnav-links { display: flex; gap: 0.25rem; }
+  .topnav-links a { color: #94a3b8; text-decoration: none; font-size: 0.85rem; font-weight: 500; padding: 0.4rem 0.75rem; border-radius: 6px; transition: all 0.2s; }
+  .topnav-links a:hover { background: rgba(148,163,184,0.1); color: #e2e8f0; }
+  .topnav-links a.active { background: rgba(16,185,129,0.15); color: #34d399; }
+
+  main { max-width: 920px; margin: 0 auto; padding: 6rem 2rem 4rem; }
+
+  .page-header { text-align: center; margin-bottom: 4rem; padding: 3rem 0; }
+  .page-header .badge { display: inline-block; padding: 0.3rem 1rem; background: var(--green-bg); border: 1px solid rgba(16,185,129,0.2); border-radius: 99px; font-size: 0.8rem; color: var(--green-light); font-weight: 600; margin-bottom: 1.5rem; }
+  .page-header h1 { font-size: clamp(2rem,5vw,3rem); font-weight: 900; letter-spacing: -0.03em; margin-bottom: 1rem; background: linear-gradient(135deg, #34d399, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .page-header p { font-size: 1.15rem; color: var(--slate-400); max-width: 650px; margin: 0 auto; }
+
+  section { margin-bottom: 4rem; }
+
+  .section-label {
+    display: inline-block; padding: 0.2rem 0.75rem; border-radius: 6px;
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+  }
+
+  h2 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
+  h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem; margin-top: 1.5rem; }
+  p { margin-bottom: 1rem; color: #cbd5e1; }
+
+  .diagram {
+    background: rgba(30,41,59,0.5); border: 1px solid var(--slate-700);
+    border-radius: 16px; padding: 2rem; margin: 2rem 0; text-align: center;
+    overflow-x: auto;
+  }
+  .diagram svg { width: 100%; max-width: 850px; height: auto; }
+  .diagram-caption { text-align: center; font-size: 0.85rem; color: var(--slate-400); margin-top: 1rem; font-style: italic; }
+
+  /* Animated flow */
+  @keyframes dash-flow { to { stroke-dashoffset: -20; } }
+  .flow-line { stroke-dasharray: 8 6; animation: dash-flow 1s linear infinite; }
+  @keyframes pulse-glow { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+  .pulse { animation: pulse-glow 2s ease-in-out infinite; }
+
+  /* Component cards grid */
+  .comp-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem; margin: 1.5rem 0;
+  }
+
+  .comp-card {
+    background: rgba(30,41,59,0.5); border: 1px solid var(--slate-700);
+    border-radius: 12px; padding: 1.25rem; transition: border-color 0.2s;
+  }
+  .comp-card:hover { border-color: var(--slate-400); }
+
+  .comp-card .comp-file {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+    color: var(--slate-400); margin-bottom: 0.4rem;
+  }
+  .comp-card .comp-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.4rem; }
+  .comp-card .comp-desc { font-size: 0.88rem; color: var(--slate-400); margin: 0; line-height: 1.5; }
+
+  /* Design decision cards */
+  .decision {
+    border-left: 3px solid; border-radius: 0 10px 10px 0;
+    background: rgba(30,41,59,0.4); padding: 1rem 1.25rem; margin: 0.75rem 0;
+  }
+  .decision h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .decision p { font-size: 0.88rem; color: var(--slate-400); margin: 0; }
+
+  /* API endpoint table */
+  .api-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    border-radius: 12px; overflow: hidden; border: 1px solid var(--slate-700);
+    margin: 1.5rem 0;
+  }
+  .api-table th {
+    background: rgba(30,41,59,0.8); padding: 0.65rem 1rem; text-align: left;
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--slate-400);
+  }
+  .api-table td {
+    padding: 0.65rem 1rem; border-top: 1px solid rgba(51,65,85,0.5);
+    font-size: 0.88rem; color: #cbd5e1;
+  }
+  .api-table code {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+    background: rgba(30,41,59,0.8); padding: 0.15rem 0.4rem; border-radius: 4px;
+  }
+  .method-badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700;
+    padding: 0.15rem 0.5rem; border-radius: 4px; display: inline-block;
+  }
+  .method-get { background: rgba(16,185,129,0.15); color: var(--green-light); }
+  .method-post { background: rgba(59,130,246,0.15); color: var(--blue-light); }
+  .method-delete { background: rgba(239,68,68,0.15); color: var(--red-light); }
+  .method-sse { background: rgba(168,85,247,0.15); color: var(--purple-light); }
+
+  .analogy {
+    background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15);
+    border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; position: relative;
+  }
+  .analogy::before {
+    content: 'In plain English'; position: absolute; top: -10px; left: 16px;
+    background: #0f172a; padding: 0 8px; font-size: 0.75rem; font-weight: 700;
+    color: var(--blue-light); text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .analogy p { color: #94a3b8; margin: 0; }
+
+  @media print {
+    .topnav { display: none; } main { padding-top: 0; }
+    body { background: white; color: #1e293b; }
+    p { color: #334155; } .diagram { border: 1px solid #d1d5db; }
+  }
+  @media (max-width: 640px) {
+    main { padding: 5rem 1rem 2rem; }
+    .topnav { padding: 0.5rem 1rem; gap: 1rem; }
+  }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <a href="index.html" class="topnav-brand">Cross-Review MCP</a>
+  <div class="topnav-links">
+    <a href="guide.html">User Guide</a>
+    <a href="architecture.html" class="active">Architecture</a>
+    <a href="status.html">Status</a>
+  </div>
+</nav>
+
+<main>
+  <div class="page-header">
+    <span class="badge">Architecture</span>
+    <h1>How It's Built</h1>
+    <p>The system design explained visually. Every piece, every connection, how data flows from your question to the final answer.</p>
+  </div>
+
+  <!-- SECTION 1: Big Picture -->
+  <section>
+    <span class="section-label" style="background: var(--blue-bg); color: var(--blue-light);">01 &mdash; The Big Picture</span>
+    <h2>System Overview</h2>
+    <p>The whole system has three parts: <strong>clients</strong> (you), the <strong>server</strong> (the brain), and <strong>AI providers</strong> (the 5 models). Here's how they connect:</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 850 400" fill="none">
+        <!-- Column labels -->
+        <text x="85" y="25" text-anchor="middle" fill="#64748b" font-size="10" font-weight="700" letter-spacing="1">CLIENTS</text>
+        <text x="425" y="25" text-anchor="middle" fill="#64748b" font-size="10" font-weight="700" letter-spacing="1">CROSS-REVIEW SERVER</text>
+        <text x="760" y="25" text-anchor="middle" fill="#64748b" font-size="10" font-weight="700" letter-spacing="1">AI PROVIDERS</text>
+
+        <!-- Separator lines -->
+        <line x1="180" y1="15" x2="180" y2="385" stroke="#334155" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="670" y1="15" x2="670" y2="385" stroke="#334155" stroke-width="1" stroke-dasharray="4 4"/>
+
+        <!-- CLIENT BOXES -->
+        <rect x="20" y="50" width="130" height="50" rx="10" fill="rgba(59,130,246,0.1)" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="85" y="72" text-anchor="middle" fill="#60a5fa" font-size="11" font-weight="700">Claude Code</text>
+        <text x="85" y="88" text-anchor="middle" fill="#475569" font-size="9">stdio pipe</text>
+
+        <rect x="20" y="120" width="130" height="50" rx="10" fill="rgba(16,185,129,0.1)" stroke="#10b981" stroke-width="1.5"/>
+        <text x="85" y="142" text-anchor="middle" fill="#34d399" font-size="11" font-weight="700">IDE Plugin</text>
+        <text x="85" y="158" text-anchor="middle" fill="#475569" font-size="9">HTTP/SSE</text>
+
+        <rect x="20" y="190" width="130" height="50" rx="10" fill="rgba(245,158,11,0.1)" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="85" y="212" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="700">Dashboard</text>
+        <text x="85" y="228" text-anchor="middle" fill="#475569" font-size="9">Browser</text>
+
+        <rect x="20" y="260" width="130" height="50" rx="10" fill="rgba(168,85,247,0.1)" stroke="#a855f7" stroke-width="1.5"/>
+        <text x="85" y="282" text-anchor="middle" fill="#c084fc" font-size="11" font-weight="700">Remote MCP</text>
+        <text x="85" y="298" text-anchor="middle" fill="#475569" font-size="9">StreamableHTTP</text>
+
+        <!-- Connection lines from clients to server -->
+        <line x1="150" y1="75" x2="215" y2="90" class="flow-line" stroke="#3b82f6" stroke-width="1.5" opacity="0.5"/>
+        <line x1="150" y1="145" x2="215" y2="140" class="flow-line" stroke="#10b981" stroke-width="1.5" opacity="0.5"/>
+        <line x1="150" y1="215" x2="215" y2="200" class="flow-line" stroke="#f59e0b" stroke-width="1.5" opacity="0.5"/>
+        <line x1="150" y1="285" x2="215" y2="250" class="flow-line" stroke="#a855f7" stroke-width="1.5" opacity="0.5"/>
+
+        <!-- SERVER INTERNALS -->
+        <!-- Transport Layer -->
+        <rect x="215" y="55" width="170" height="45" rx="10" fill="rgba(59,130,246,0.12)" stroke="#3b82f6" stroke-width="1"/>
+        <text x="300" y="76" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="700">Transport Layer</text>
+        <text x="300" y="90" text-anchor="middle" fill="#475569" font-size="8">stdio | HTTP | both</text>
+
+        <!-- Tool Registry -->
+        <rect x="405" y="55" width="170" height="45" rx="10" fill="rgba(59,130,246,0.12)" stroke="#3b82f6" stroke-width="1"/>
+        <text x="490" y="76" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="700">Tool Registry</text>
+        <text x="490" y="90" text-anchor="middle" fill="#475569" font-size="8">registerTools()</text>
+
+        <!-- Arrow between -->
+        <line x1="385" y1="77" x2="405" y2="77" stroke="#3b82f6" stroke-width="1" opacity="0.4"/>
+
+        <!-- Review Executor (central) -->
+        <rect x="260" y="130" width="270" height="60" rx="12" fill="rgba(16,185,129,0.1)" stroke="#10b981" stroke-width="2"/>
+        <text x="395" y="155" text-anchor="middle" fill="#34d399" font-size="12" font-weight="800">Review Executor</text>
+        <text x="395" y="172" text-anchor="middle" fill="#475569" font-size="9">Parallel dispatch &bull; Event emission &bull; Error isolation</text>
+
+        <!-- Arrow down from transport -->
+        <line x1="300" y1="100" x2="350" y2="130" stroke="#3b82f6" stroke-width="1" opacity="0.4"/>
+        <line x1="490" y1="100" x2="440" y2="130" stroke="#3b82f6" stroke-width="1" opacity="0.4"/>
+
+        <!-- Consensus + Event Bus row -->
+        <rect x="215" y="220" width="185" height="50" rx="10" fill="rgba(16,185,129,0.1)" stroke="#10b981" stroke-width="1"/>
+        <text x="308" y="243" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">Consensus Engine</text>
+        <text x="308" y="258" text-anchor="middle" fill="#475569" font-size="8">Multi-perspective synthesis</text>
+
+        <rect x="415" y="220" width="160" height="50" rx="10" fill="rgba(239,68,68,0.1)" stroke="#ef4444" stroke-width="1"/>
+        <text x="495" y="243" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700">Event Bus</text>
+        <text x="495" y="258" text-anchor="middle" fill="#475569" font-size="8">Typed EventEmitter</text>
+
+        <!-- Arrows from executor -->
+        <line x1="350" y1="190" x2="308" y2="220" stroke="#10b981" stroke-width="1" opacity="0.4"/>
+        <line x1="440" y1="190" x2="495" y2="220" stroke="#ef4444" stroke-width="1" opacity="0.4"/>
+
+        <!-- Bottom utility row -->
+        <rect x="215" y="300" width="110" height="42" rx="8" fill="rgba(30,41,59,0.5)" stroke="#475569" stroke-width="1"/>
+        <text x="270" y="322" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">LRU Cache</text>
+        <text x="270" y="334" text-anchor="middle" fill="#475569" font-size="7">cache.ts</text>
+
+        <rect x="340" y="300" width="110" height="42" rx="8" fill="rgba(30,41,59,0.5)" stroke="#475569" stroke-width="1"/>
+        <text x="395" y="322" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">Cost Manager</text>
+        <text x="395" y="334" text-anchor="middle" fill="#475569" font-size="7">cost-manager.ts</text>
+
+        <rect x="465" y="300" width="110" height="42" rx="8" fill="rgba(30,41,59,0.5)" stroke="#475569" stroke-width="1"/>
+        <text x="520" y="322" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">Config / Zod</text>
+        <text x="520" y="334" text-anchor="middle" fill="#475569" font-size="7">config.ts</text>
+
+        <!-- AI PROVIDER BOXES -->
+        <rect x="695" y="55" width="130" height="38" rx="8" fill="rgba(59,130,246,0.12)" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="760" y="78" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="700">OpenAI</text>
+
+        <rect x="695" y="105" width="130" height="38" rx="8" fill="rgba(16,185,129,0.12)" stroke="#10b981" stroke-width="1.5"/>
+        <text x="760" y="128" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">Gemini</text>
+
+        <rect x="695" y="155" width="130" height="38" rx="8" fill="rgba(245,158,11,0.12)" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="760" y="178" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">DeepSeek</text>
+
+        <rect x="695" y="205" width="130" height="38" rx="8" fill="rgba(239,68,68,0.12)" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="760" y="228" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700">Mistral</text>
+
+        <rect x="695" y="255" width="130" height="38" rx="8" fill="rgba(168,85,247,0.12)" stroke="#a855f7" stroke-width="1.5"/>
+        <text x="760" y="278" text-anchor="middle" fill="#c084fc" font-size="10" font-weight="700">OpenRouter</text>
+
+        <!-- Connection lines from executor to providers -->
+        <line x1="530" y1="150" x2="695" y2="74" class="flow-line" stroke="#3b82f6" stroke-width="1.5" opacity="0.5"/>
+        <line x1="530" y1="155" x2="695" y2="124" class="flow-line" stroke="#10b981" stroke-width="1.5" opacity="0.5"/>
+        <line x1="530" y1="160" x2="695" y2="174" class="flow-line" stroke="#f59e0b" stroke-width="1.5" opacity="0.5"/>
+        <line x1="530" y1="165" x2="695" y2="224" class="flow-line" stroke="#ef4444" stroke-width="1.5" opacity="0.5"/>
+        <line x1="530" y1="170" x2="695" y2="274" class="flow-line" stroke="#a855f7" stroke-width="1.5" opacity="0.5"/>
+
+        <!-- Design principle callout -->
+        <rect x="215" y="360" width="440" height="35" rx="8" fill="rgba(245,158,11,0.06)" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 4"/>
+        <text x="230" y="378" fill="#fbbf24" font-size="8" font-weight="700">DESIGN RULE:</text>
+        <text x="310" y="378" fill="#94a3b8" font-size="8">If one AI model fails, the rest keep going. One failure never breaks the whole thing.</text>
+      </svg>
+      <p class="diagram-caption">Three columns: who asks (clients), what processes (server), who answers (AI providers)</p>
+    </div>
+
+    <div class="analogy">
+      <p>The server is like a post office. You drop off a letter (your question). The post office makes 5 copies and sends them to 5 different experts at the same time. As each expert replies, the post office collects the answers, compares them, and hands you a summary: "4 out of 5 said the same thing."</p>
+    </div>
+  </section>
+
+  <!-- SECTION 2: Components -->
+  <section>
+    <span class="section-label" style="background: var(--green-bg); color: var(--green-light);">02 &mdash; The Pieces</span>
+    <h2>System Components</h2>
+    <p>Each file does one job. Here's what each piece is responsible for:</p>
+
+    <div class="comp-grid">
+      <div class="comp-card" style="border-top: 3px solid var(--blue);">
+        <div class="comp-file">src/index.ts</div>
+        <div class="comp-name" style="color: var(--blue-light);">MCP Server</div>
+        <p class="comp-desc">The front door. Receives requests, registers the 4 tools, decides whether to use stdio or HTTP mode. Starts up the whole system.</p>
+      </div>
+
+      <div class="comp-card" style="border-top: 3px solid var(--green);">
+        <div class="comp-file">src/executor.ts</div>
+        <div class="comp-name" style="color: var(--green-light);">Review Executor</div>
+        <p class="comp-desc">The brain. Takes your question, sends it to all 5 models at once, and collects their answers. Fires events as each model responds so the dashboard updates live.</p>
+      </div>
+
+      <div class="comp-card" style="border-top: 3px solid var(--amber);">
+        <div class="comp-file">src/consensus-algorithm.ts</div>
+        <div class="comp-name" style="color: var(--amber-light);">Consensus Engine</div>
+        <p class="comp-desc">The judge. Looks at all 5 answers, finds what they agree on, scores confidence, and flags interesting disagreements. Uses word-similarity matching to cluster responses.</p>
+      </div>
+
+      <div class="comp-card" style="border-top: 3px solid var(--red);">
+        <div class="comp-file">src/events.ts</div>
+        <div class="comp-name" style="color: var(--red-light);">Event Bus</div>
+        <p class="comp-desc">The announcement system. Every time something happens (request started, model finished, etc.), it broadcasts to anyone listening &mdash; like the dashboard.</p>
+      </div>
+
+      <div class="comp-card" style="border-top: 3px solid var(--purple);">
+        <div class="comp-file">src/providers.ts</div>
+        <div class="comp-name" style="color: var(--purple-light);">Provider Layer</div>
+        <p class="comp-desc">The translator. Each AI company has a slightly different way to talk to them. This layer speaks all their languages so the executor doesn't have to.</p>
+      </div>
+
+      <div class="comp-card" style="border-top: 3px solid var(--cyan);">
+        <div class="comp-file">src/server.ts</div>
+        <div class="comp-name" style="color: var(--cyan-light);">HTTP Server</div>
+        <p class="comp-desc">The web server. Runs the dashboard, provides the stats API, streams live events via SSE, and handles remote MCP connections.</p>
+      </div>
+
+      <div class="comp-card" style="border-top: 3px solid #94a3b8;">
+        <div class="comp-file">src/cache.ts</div>
+        <div class="comp-name">LRU Cache</div>
+        <p class="comp-desc">The memory. If you ask the same question twice, it returns the saved answer instantly &mdash; no API calls, no cost. Saves to disk so it survives restarts.</p>
+      </div>
+
+      <div class="comp-card" style="border-top: 3px solid #94a3b8;">
+        <div class="comp-file">src/cost-manager.ts</div>
+        <div class="comp-name">Cost Manager</div>
+        <p class="comp-desc">The accountant. Tracks how much each model costs per question, tallies daily and monthly spend, and can warn you if you're spending too much.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3: Request Lifecycle -->
+  <section>
+    <span class="section-label" style="background: var(--amber-bg); color: var(--amber-light);">03 &mdash; Step by Step</span>
+    <h2>Request Lifecycle</h2>
+    <p>Every question follows this exact path through the system. Here's what happens from the moment you ask to the moment you get your answer:</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 850 160" fill="none">
+        <!-- Step boxes in a pipeline -->
+        <!-- 1. Request In -->
+        <rect x="5" y="40" width="100" height="80" rx="12" fill="rgba(59,130,246,0.15)" stroke="#3b82f6" stroke-width="2"/>
+        <circle cx="55" cy="60" r="14" fill="#3b82f6"/>
+        <text x="55" y="64" text-anchor="middle" fill="white" font-size="10" font-weight="800">IN</text>
+        <text x="55" y="90" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="600">Request</text>
+        <text x="55" y="103" text-anchor="middle" fill="#475569" font-size="7">your question</text>
+
+        <!-- Arrow -->
+        <line x1="105" y1="80" x2="130" y2="80" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrowB)"/>
+
+        <!-- 2. Cache Check -->
+        <rect x="130" y="40" width="100" height="80" rx="12" fill="rgba(245,158,11,0.1)" stroke="#f59e0b" stroke-width="1.5"/>
+        <circle cx="180" cy="60" r="14" fill="#f59e0b"/>
+        <text x="180" y="65" text-anchor="middle" fill="white" font-size="12" font-weight="800">$?</text>
+        <text x="180" y="90" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Cache</text>
+        <text x="180" y="103" text-anchor="middle" fill="#475569" font-size="7">seen before?</text>
+
+        <!-- Arrow -->
+        <line x1="230" y1="80" x2="260" y2="80" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrowA)"/>
+
+        <!-- 3. Parallel Dispatch -->
+        <rect x="260" y="20" width="130" height="120" rx="12" fill="rgba(16,185,129,0.1)" stroke="#10b981" stroke-width="2"/>
+        <circle cx="325" cy="42" r="14" fill="#10b981"/>
+        <text x="325" y="47" text-anchor="middle" fill="white" font-size="12" font-weight="800">||</text>
+        <text x="325" y="66" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600">Dispatch</text>
+        <!-- Mini model boxes -->
+        <rect x="275" y="75" width="44" height="16" rx="3" fill="rgba(59,130,246,0.3)"/>
+        <text x="297" y="86" text-anchor="middle" fill="#60a5fa" font-size="6" font-weight="600">GPT</text>
+        <rect x="323" y="75" width="52" height="16" rx="3" fill="rgba(16,185,129,0.3)"/>
+        <text x="349" y="86" text-anchor="middle" fill="#34d399" font-size="6" font-weight="600">Gemini</text>
+        <rect x="275" y="95" width="44" height="16" rx="3" fill="rgba(245,158,11,0.3)"/>
+        <text x="297" y="106" text-anchor="middle" fill="#fbbf24" font-size="6" font-weight="600">Deep</text>
+        <rect x="323" y="95" width="52" height="16" rx="3" fill="rgba(239,68,68,0.3)"/>
+        <text x="349" y="106" text-anchor="middle" fill="#f87171" font-size="6" font-weight="600">Mistral</text>
+        <rect x="275" y="115" width="100" height="16" rx="3" fill="rgba(168,85,247,0.3)"/>
+        <text x="325" y="126" text-anchor="middle" fill="#c084fc" font-size="6" font-weight="600">OpenRouter</text>
+
+        <!-- Timing annotation -->
+        <text x="325" y="155" text-anchor="middle" fill="#475569" font-size="8">~2-8s (parallel)</text>
+
+        <!-- Arrow -->
+        <line x1="390" y1="80" x2="420" y2="80" stroke="#10b981" stroke-width="2" marker-end="url(#arrowG)"/>
+
+        <!-- 4. Parse -->
+        <rect x="420" y="40" width="100" height="80" rx="12" fill="rgba(168,85,247,0.1)" stroke="#a855f7" stroke-width="1.5"/>
+        <circle cx="470" cy="60" r="14" fill="#a855f7"/>
+        <text x="470" y="65" text-anchor="middle" fill="white" font-size="10" font-weight="800">{}</text>
+        <text x="470" y="90" text-anchor="middle" fill="#c084fc" font-size="9" font-weight="600">Parse</text>
+        <text x="470" y="103" text-anchor="middle" fill="#475569" font-size="7">read JSON</text>
+
+        <!-- Arrow -->
+        <line x1="520" y1="80" x2="550" y2="80" stroke="#a855f7" stroke-width="2" marker-end="url(#arrowP)"/>
+
+        <!-- 5. Consensus -->
+        <rect x="550" y="40" width="120" height="80" rx="12" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="2"/>
+        <text x="610" y="65" text-anchor="middle" fill="#34d399" font-size="22" font-weight="300">&Sigma;</text>
+        <text x="610" y="90" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600">Consensus</text>
+        <text x="610" y="103" text-anchor="middle" fill="#475569" font-size="7">find agreement</text>
+
+        <!-- Arrow -->
+        <line x1="670" y1="80" x2="700" y2="80" stroke="#10b981" stroke-width="2" marker-end="url(#arrowG2)"/>
+
+        <!-- 6. Result -->
+        <rect x="700" y="40" width="100" height="80" rx="12" fill="rgba(16,185,129,0.2)" stroke="#10b981" stroke-width="2.5"/>
+        <circle cx="750" cy="60" r="14" fill="#10b981"/>
+        <text x="750" y="65" text-anchor="middle" fill="white" font-size="10" font-weight="800">OK</text>
+        <text x="750" y="90" text-anchor="middle" fill="#34d399" font-size="9" font-weight="700">Result</text>
+        <text x="750" y="103" text-anchor="middle" fill="#475569" font-size="7">your answer</text>
+
+        <!-- Timing labels -->
+        <text x="180" y="155" text-anchor="middle" fill="#475569" font-size="8">~0ms</text>
+        <text x="610" y="155" text-anchor="middle" fill="#475569" font-size="8">~100ms</text>
+
+        <!-- Arrow markers -->
+        <defs>
+          <marker id="arrowB" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#3b82f6"/></marker>
+          <marker id="arrowA" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#f59e0b"/></marker>
+          <marker id="arrowG" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#10b981"/></marker>
+          <marker id="arrowP" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#a855f7"/></marker>
+          <marker id="arrowG2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#10b981"/></marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">Your question flows left to right: received &rarr; checked in cache &rarr; sent to all models at once &rarr; parsed &rarr; consensus built &rarr; answer returned</p>
+    </div>
+
+    <p>The whole thing takes <strong>3&ndash;5 seconds</strong>. The cache check is instant. Sending to 5 models takes 2&ndash;8 seconds (but they run at the same time, so it's as fast as the slowest one). Building consensus takes about 100 milliseconds.</p>
+  </section>
+
+  <!-- SECTION 4: Network & Transport -->
+  <section>
+    <span class="section-label" style="background: var(--purple-bg); color: var(--purple-light);">04 &mdash; Network & Transport</span>
+    <h2>How Clients Connect</h2>
+    <p>Three transport modes let the server work in different situations:</p>
+
+    <div class="comp-grid" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="comp-card" style="border-top: 3px solid var(--blue); text-align: center;">
+        <div class="comp-name" style="color: var(--blue-light); font-size: 1.2rem;">stdio</div>
+        <div class="comp-file" style="font-family: 'JetBrains Mono', monospace;">--mode stdio</div>
+        <p class="comp-desc" style="margin-top: 0.5rem;">Direct pipe to Claude Desktop. Like a private phone line &mdash; fastest, simplest.</p>
+      </div>
+
+      <div class="comp-card" style="border-top: 3px solid var(--green); text-align: center;">
+        <div class="comp-name" style="color: var(--green-light); font-size: 1.2rem;">HTTP</div>
+        <div class="comp-file" style="font-family: 'JetBrains Mono', monospace;">--mode http</div>
+        <p class="comp-desc" style="margin-top: 0.5rem;">Web server on port 6280. Dashboard + API. Anyone on your network can access it.</p>
+      </div>
+
+      <div class="comp-card" style="border-top: 3px solid var(--purple); text-align: center;">
+        <div class="comp-name" style="color: var(--purple-light); font-size: 1.2rem;">Both</div>
+        <div class="comp-file" style="font-family: 'JetBrains Mono', monospace;">--mode both</div>
+        <p class="comp-desc" style="margin-top: 0.5rem;">Runs stdio AND HTTP at the same time. Best of both worlds &mdash; no conflicts.</p>
+      </div>
+    </div>
+
+    <h3>HTTP Mode Network Diagram</h3>
+    <div class="diagram">
+      <svg viewBox="0 0 750 280" fill="none">
+        <!-- Browser client -->
+        <rect x="10" y="30" width="130" height="50" rx="10" fill="rgba(245,158,11,0.1)" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="75" y="52" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">Browser</text>
+        <text x="75" y="68" text-anchor="middle" fill="#475569" font-size="8">Dashboard + SSE</text>
+
+        <!-- Remote MCP client -->
+        <rect x="10" y="100" width="130" height="50" rx="10" fill="rgba(168,85,247,0.1)" stroke="#a855f7" stroke-width="1.5"/>
+        <text x="75" y="122" text-anchor="middle" fill="#c084fc" font-size="10" font-weight="700">Remote MCP</text>
+        <text x="75" y="138" text-anchor="middle" fill="#475569" font-size="8">Client SDK</text>
+
+        <!-- Connection lines -->
+        <line x1="140" y1="55" x2="220" y2="75" class="flow-line" stroke="#f59e0b" stroke-width="1.5" opacity="0.5"/>
+        <text x="175" y="58" fill="#475569" font-size="7">HTTP/SSE</text>
+        <line x1="140" y1="125" x2="220" y2="125" class="flow-line" stroke="#a855f7" stroke-width="1.5" opacity="0.5"/>
+        <text x="175" y="118" fill="#475569" font-size="7">POST</text>
+
+        <!-- Express Server box -->
+        <rect x="220" y="20" width="300" height="230" rx="14" fill="rgba(30,41,59,0.6)" stroke="#475569" stroke-width="1.5"/>
+        <text x="370" y="42" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="800">Express Server :6280</text>
+
+        <!-- Route entries -->
+        <rect x="240" y="55" width="260" height="32" rx="6" fill="rgba(30,41,59,0.8)"/>
+        <text x="260" y="74" fill="#34d399" font-size="9" font-weight="600">GET /</text>
+        <text x="380" y="74" fill="#94a3b8" font-size="9">Dashboard HTML</text>
+
+        <rect x="240" y="95" width="260" height="32" rx="6" fill="rgba(30,41,59,0.8)"/>
+        <text x="260" y="114" fill="#c084fc" font-size="9" font-weight="600">GET /api/events</text>
+        <text x="380" y="114" fill="#94a3b8" font-size="9">SSE Stream</text>
+
+        <rect x="240" y="135" width="260" height="32" rx="6" fill="rgba(30,41,59,0.8)"/>
+        <text x="260" y="154" fill="#34d399" font-size="9" font-weight="600">GET /api/stats</text>
+        <text x="380" y="154" fill="#94a3b8" font-size="9">JSON Statistics</text>
+
+        <rect x="240" y="175" width="260" height="32" rx="6" fill="rgba(30,41,59,0.8)"/>
+        <text x="260" y="194" fill="#60a5fa" font-size="9" font-weight="600">POST /mcp</text>
+        <text x="380" y="194" fill="#94a3b8" font-size="9">StreamableHTTP MCP</text>
+
+        <rect x="240" y="215" width="260" height="26" rx="6" fill="rgba(30,41,59,0.8)"/>
+        <text x="260" y="232" fill="#f87171" font-size="9" font-weight="600">DELETE /mcp</text>
+        <text x="380" y="232" fill="#94a3b8" font-size="9">End session</text>
+
+        <!-- Connection to LLM APIs -->
+        <line x1="520" y1="130" x2="580" y2="130" class="flow-line" stroke="#10b981" stroke-width="2" opacity="0.5"/>
+        <text x="548" y="122" fill="#475569" font-size="7">HTTPS</text>
+
+        <!-- LLM APIs box -->
+        <rect x="580" y="45" width="155" height="175" rx="12" fill="rgba(30,41,59,0.4)" stroke="#334155" stroke-width="1"/>
+        <text x="658" y="65" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" letter-spacing="0.5">LLM APIs</text>
+
+        <text x="600" y="90" fill="#60a5fa" font-size="9">api.openai.com</text>
+        <text x="600" y="115" fill="#34d399" font-size="9">googleapis.com</text>
+        <text x="600" y="140" fill="#fbbf24" font-size="9">api.deepseek.com</text>
+        <text x="600" y="165" fill="#f87171" font-size="9">api.mistral.ai</text>
+        <text x="600" y="190" fill="#c084fc" font-size="9">openrouter.ai</text>
+      </svg>
+      <p class="diagram-caption">HTTP mode: the Express server handles the dashboard, API, and MCP endpoint &mdash; all on port 6280</p>
+    </div>
+  </section>
+
+  <!-- SECTION 5: Key Design Decisions -->
+  <section>
+    <span class="section-label" style="background: var(--red-bg); color: var(--red-light);">05 &mdash; Design Decisions</span>
+    <h2>Why It's Built This Way</h2>
+    <p>Every architecture has trade-offs. Here are the key decisions and why they were made:</p>
+
+    <div class="decision" style="border-color: var(--green);">
+      <h4 style="color: var(--green-light);">Parallel execution, not sequential</h4>
+      <p>All 5 models run at the same time. Your total wait time = the slowest model (~3s), not the sum of all 5 (~15s). This is the core insight that makes the tool practical.</p>
+    </div>
+
+    <div class="decision" style="border-color: var(--blue);">
+      <h4 style="color: var(--blue-light);">Partial success is OK</h4>
+      <p>If one model fails (network error, timeout, bad key), the other 4 still return results. You get the best answer possible instead of "error, try again."</p>
+    </div>
+
+    <div class="decision" style="border-color: var(--amber);">
+      <h4 style="color: var(--amber-light);">Disagreement is a feature, not a bug</h4>
+      <p>When 4 models agree and 1 disagrees, the different opinion is surfaced as an "alternative perspective" &mdash; not hidden. Sometimes the dissenting model is right.</p>
+    </div>
+
+    <div class="decision" style="border-color: var(--purple);">
+      <h4 style="color: var(--purple-light);">Lazy loading</h4>
+      <p>The system doesn't connect to AI providers when it starts up &mdash; only when you make your first request. This prevents startup errors if a key is missing.</p>
+    </div>
+
+    <div class="decision" style="border-color: var(--red);">
+      <h4 style="color: var(--red-light);">Console suppression in stdio mode</h4>
+      <p>When talking to Claude Desktop via stdio, ALL console output is silenced. Otherwise log messages would corrupt the MCP protocol (which uses the same pipe).</p>
+    </div>
+  </section>
+
+  <!-- SECTION 6: API Reference -->
+  <section>
+    <span class="section-label" style="background: var(--cyan-light); background: rgba(6,182,212,0.1); color: var(--cyan-light);">06 &mdash; API Reference</span>
+    <h2>HTTP Endpoints</h2>
+    <p>When running in HTTP mode, these routes are available on port 6280:</p>
+
+    <table class="api-table">
+      <thead><tr><th>Route</th><th>Method</th><th>What It Does</th><th>Auth</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>/</code></td>
+          <td><span class="method-badge method-get">GET</span></td>
+          <td>Live dashboard with real-time updates</td>
+          <td>Optional token</td>
+        </tr>
+        <tr>
+          <td><code>/health</code></td>
+          <td><span class="method-badge method-get">GET</span></td>
+          <td>Health check &mdash; always public</td>
+          <td>None</td>
+        </tr>
+        <tr>
+          <td><code>/api/stats</code></td>
+          <td><span class="method-badge method-get">GET</span></td>
+          <td>JSON stats: costs, cache, recent requests</td>
+          <td>Optional token</td>
+        </tr>
+        <tr>
+          <td><code>/api/events</code></td>
+          <td><span class="method-badge method-sse">SSE</span></td>
+          <td>Real-time event stream (model completions)</td>
+          <td>Optional token</td>
+        </tr>
+        <tr>
+          <td><code>/mcp</code></td>
+          <td><span class="method-badge method-post">POST</span></td>
+          <td>MCP tool invocations via StreamableHTTP</td>
+          <td>Session</td>
+        </tr>
+        <tr>
+          <td><code>/mcp</code></td>
+          <td><span class="method-badge method-get">GET</span></td>
+          <td>SSE channel for MCP notifications</td>
+          <td>Session</td>
+        </tr>
+        <tr>
+          <td><code>/mcp</code></td>
+          <td><span class="method-badge method-delete">DELETE</span></td>
+          <td>Terminate MCP session</td>
+          <td>Session</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer style="text-align: center; padding: 3rem 0; color: #475569; font-size: 0.85rem; border-top: 1px solid #1e293b;">
+    <p><a href="index.html" style="color: #64748b; text-decoration: none;">&#x2190; Back to docs home</a></p>
+    <p style="margin-top: 0.5rem;">Cross-Review MCP v0.6.0 &middot; March 2026</p>
+  </footer>
+</main>
+</body>
+</html>

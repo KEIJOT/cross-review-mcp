@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Guide — Cross-Review MCP</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --blue: #3b82f6; --blue-light: #60a5fa; --blue-bg: rgba(59,130,246,0.1);
+    --green: #10b981; --green-light: #34d399; --green-bg: rgba(16,185,129,0.1);
+    --amber: #f59e0b; --amber-light: #fbbf24; --amber-bg: rgba(245,158,11,0.1);
+    --red: #ef4444; --red-light: #f87171; --red-bg: rgba(239,68,68,0.1);
+    --purple: #a855f7; --purple-light: #c084fc; --purple-bg: rgba(168,85,247,0.1);
+    --navy: #0f172a; --slate-900: #1e293b; --slate-800: #1e293b; --slate-700: #334155;
+    --slate-600: #475569; --slate-400: #94a3b8; --slate-300: #cbd5e1; --slate-100: #f1f5f9;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+
+  /* Top navigation */
+  .topnav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+    z-index: 100;
+    padding: 0.75rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .topnav-brand {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #e2e8f0;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .topnav-links {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .topnav-links a {
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .topnav-links a:hover { background: rgba(148,163,184,0.1); color: #e2e8f0; }
+  .topnav-links a.active { background: rgba(59,130,246,0.15); color: #60a5fa; }
+
+  /* Main content */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 6rem 2rem 4rem;
+  }
+
+  /* Page header */
+  .page-header {
+    text-align: center;
+    margin-bottom: 4rem;
+    padding: 3rem 0;
+  }
+
+  .page-header .badge {
+    display: inline-block;
+    padding: 0.3rem 1rem;
+    background: var(--blue-bg);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 99px;
+    font-size: 0.8rem;
+    color: var(--blue-light);
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+  }
+
+  .page-header h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, #60a5fa, #34d399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .page-header p {
+    font-size: 1.15rem;
+    color: var(--slate-400);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* Section styling */
+  section {
+    margin-bottom: 4rem;
+  }
+
+  .section-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+  }
+
+  h2 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    margin-top: 2rem;
+  }
+
+  p { margin-bottom: 1rem; color: #cbd5e1; }
+
+  .lead { font-size: 1.1rem; color: var(--slate-400); margin-bottom: 1.5rem; }
+
+  /* Callout / analogy boxes */
+  .analogy {
+    background: rgba(59, 130, 246, 0.06);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    position: relative;
+  }
+
+  .analogy::before {
+    content: 'Think of it like this';
+    position: absolute;
+    top: -10px;
+    left: 16px;
+    background: #0f172a;
+    padding: 0 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--blue-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .analogy p { color: #94a3b8; margin: 0; }
+
+  /* Code blocks */
+  .code-block {
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 1rem 0 1.5rem;
+  }
+
+  .code-header {
+    background: #161b22;
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    color: #8b949e;
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .code-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .code-dot.red { background: #ff5f57; }
+  .code-dot.yellow { background: #febc2e; }
+  .code-dot.green { background: #28c840; }
+
+  .code-body {
+    padding: 1rem 1.25rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    color: #e6edf3;
+    overflow-x: auto;
+  }
+
+  .code-body .comment { color: #8b949e; }
+  .code-body .keyword { color: #ff7b72; }
+  .code-body .string { color: #a5d6ff; }
+  .code-body .var { color: #ffa657; }
+
+  /* SVG diagram containers */
+  .diagram {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid var(--slate-700);
+    border-radius: 16px;
+    padding: 2rem;
+    margin: 2rem 0;
+    text-align: center;
+  }
+
+  .diagram svg { width: 100%; max-width: 700px; height: auto; }
+
+  .diagram-caption {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--slate-400);
+    margin-top: 1rem;
+    font-style: italic;
+  }
+
+  /* Step cards */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin: 1.5rem 0;
+  }
+
+  .step {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid var(--slate-700);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .step:hover { border-color: var(--slate-600); }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1rem;
+  }
+
+  .step-body h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+  }
+
+  .step-body p { color: var(--slate-400); font-size: 0.95rem; margin: 0; }
+
+  /* Comparison table */
+  .compare-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 1.5rem 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--slate-700);
+  }
+
+  .compare-table th {
+    background: rgba(30, 41, 59, 0.8);
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--slate-400);
+  }
+
+  .compare-table td {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid rgba(51, 65, 85, 0.5);
+    font-size: 0.9rem;
+    color: #cbd5e1;
+  }
+
+  .compare-table tr:hover td { background: rgba(30, 41, 59, 0.3); }
+
+  /* Provider cards */
+  .provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .provider-card {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid var(--slate-700);
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .provider-card:hover { border-color: var(--slate-600); transform: translateY(-2px); }
+
+  .provider-card .name { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.25rem; }
+  .provider-card .model { font-size: 0.8rem; color: var(--slate-400); }
+  .provider-card .cost { font-size: 0.75rem; color: var(--green-light); margin-top: 0.5rem; }
+
+  /* Tool reference cards */
+  .tool-card {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid var(--slate-700);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+
+  .tool-card .tool-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--green-light);
+    margin-bottom: 0.5rem;
+  }
+
+  .tool-card .tool-desc { color: var(--slate-300); margin-bottom: 0.75rem; }
+
+  .param-list { list-style: none; }
+  .param-list li {
+    padding: 0.35rem 0;
+    font-size: 0.9rem;
+    color: var(--slate-400);
+    display: flex;
+    gap: 0.5rem;
+  }
+  .param-list .param-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--amber-light);
+    font-size: 0.8rem;
+  }
+  .param-list .required {
+    font-size: 0.7rem;
+    color: var(--red-light);
+    background: var(--red-bg);
+    padding: 0 4px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  /* FAQ / Troubleshooting */
+  .faq-item {
+    border: 1px solid var(--slate-700);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin: 0.75rem 0;
+    background: rgba(30, 41, 59, 0.3);
+  }
+
+  .faq-q {
+    font-weight: 700;
+    color: var(--amber-light);
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  .faq-a { color: var(--slate-400); font-size: 0.9rem; margin: 0; }
+
+  /* Animated flow lines */
+  @keyframes dash-flow { to { stroke-dashoffset: -20; } }
+  .flow-line { stroke-dasharray: 8 6; animation: dash-flow 1s linear infinite; }
+
+  @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+  /* Print styles */
+  @media print {
+    .topnav { display: none; }
+    main { padding-top: 0; }
+    body { background: white; color: #1e293b; }
+    p { color: #334155; }
+    .code-block { border: 1px solid #d1d5db; }
+    .code-body { color: #1e293b; }
+    .diagram { border: 1px solid #d1d5db; }
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    main { padding: 5rem 1rem 2rem; }
+    .topnav { padding: 0.5rem 1rem; gap: 1rem; }
+    .topnav-links a { font-size: 0.75rem; padding: 0.3rem 0.5rem; }
+    .step { flex-direction: column; gap: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+<!-- Navigation -->
+<nav class="topnav">
+  <a href="index.html" class="topnav-brand">Cross-Review MCP</a>
+  <div class="topnav-links">
+    <a href="guide.html" class="active">User Guide</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="status.html">Status</a>
+  </div>
+</nav>
+
+<main>
+  <!-- Page Header -->
+  <div class="page-header">
+    <span class="badge">User Guide</span>
+    <h1>The Simplest Way to Get<br>5 AI Opinions at Once</h1>
+    <p>Everything you need to know to install, set up, and start using cross-review-mcp. No engineering degree required.</p>
+  </div>
+
+  <!-- SECTION 1: What Is This? -->
+  <section>
+    <div class="section-number" style="background: var(--blue-bg); color: var(--blue-light);">1</div>
+    <h2>What Is This?</h2>
+
+    <p>When you have a question &mdash; a bug in your code, a design decision, a technical problem &mdash; you normally ask <strong>one</strong> AI model (like ChatGPT or Gemini). You get one answer and hope it's right.</p>
+
+    <p><strong>Cross-Review MCP</strong> lets you ask <strong>5 different AI models the same question at the same time.</strong> It takes the same 3&ndash;5 seconds as asking one, because they all work in parallel.</p>
+
+    <p>Then it shows you:</p>
+    <ul style="list-style: none; padding: 0; margin: 1rem 0 1.5rem;">
+      <li style="padding: 0.4rem 0; color: #cbd5e1;"><span style="color: var(--green-light); margin-right: 0.5rem;">&#x2713;</span> What they <strong>all agree on</strong> (the consensus)</li>
+      <li style="padding: 0.4rem 0; color: #cbd5e1;"><span style="color: var(--blue-light); margin-right: 0.5rem;">&#x2727;</span> What each model <strong>individually thinks</strong></li>
+      <li style="padding: 0.4rem 0; color: #cbd5e1;"><span style="color: var(--amber-light); margin-right: 0.5rem;">&#x26A0;</span> Where they <strong>disagree</strong> (which is actually useful!)</li>
+      <li style="padding: 0.4rem 0; color: #cbd5e1;"><span style="color: var(--purple-light); margin-right: 0.5rem;">%</span> A <strong>confidence score</strong> &mdash; how sure they are</li>
+    </ul>
+
+    <div class="analogy">
+      <p>You have 5 expert friends. You text all of them the same question at once. In 3 seconds, they all reply. 4 out of 5 say the same thing &mdash; now you're pretty confident in the answer. The 5th friend has a different idea &mdash; worth thinking about too!</p>
+    </div>
+
+    <!-- Sequential vs Parallel Diagram -->
+    <div class="diagram">
+      <svg viewBox="0 0 700 210" fill="none">
+        <!-- OLD WAY - Sequential -->
+        <text x="350" y="20" text-anchor="middle" fill="#f87171" font-size="12" font-weight="700">THE OLD WAY &mdash; One at a time (15 seconds total)</text>
+        <rect x="20" y="30" width="120" height="30" rx="6" fill="rgba(59,130,246,0.3)" stroke="#3b82f6" stroke-width="1"/>
+        <text x="80" y="49" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="600">OpenAI (3s)</text>
+        <rect x="145" y="30" width="120" height="30" rx="6" fill="rgba(16,185,129,0.3)" stroke="#10b981" stroke-width="1"/>
+        <text x="205" y="49" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">Gemini (3s)</text>
+        <rect x="270" y="30" width="120" height="30" rx="6" fill="rgba(245,158,11,0.3)" stroke="#f59e0b" stroke-width="1"/>
+        <text x="330" y="49" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">DeepSeek (3s)</text>
+        <rect x="395" y="30" width="120" height="30" rx="6" fill="rgba(239,68,68,0.3)" stroke="#ef4444" stroke-width="1"/>
+        <text x="455" y="49" text-anchor="middle" fill="#f87171" font-size="10" font-weight="600">Mistral (3s)</text>
+        <rect x="520" y="30" width="120" height="30" rx="6" fill="rgba(168,85,247,0.3)" stroke="#a855f7" stroke-width="1"/>
+        <text x="580" y="49" text-anchor="middle" fill="#c084fc" font-size="10" font-weight="600">OpenRouter (3s)</text>
+        <text x="665" y="49" fill="#f87171" font-size="11" font-weight="800">15s!</text>
+
+        <!-- Divider -->
+        <line x1="20" y1="80" x2="680" y2="80" stroke="#334155" stroke-width="1" stroke-dasharray="4 4"/>
+        <text x="350" y="75" text-anchor="middle" fill="#475569" font-size="9">VS</text>
+
+        <!-- NEW WAY - Parallel -->
+        <text x="350" y="108" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">CROSS-REVIEW &mdash; All at once (3.5 seconds total)</text>
+        <rect x="20" y="118" width="200" height="16" rx="4" fill="rgba(59,130,246,0.4)"/>
+        <text x="25" y="130" fill="#60a5fa" font-size="9" font-weight="600">OpenAI</text>
+        <rect x="20" y="138" width="180" height="16" rx="4" fill="rgba(16,185,129,0.4)"/>
+        <text x="25" y="150" fill="#34d399" font-size="9" font-weight="600">Gemini</text>
+        <rect x="20" y="158" width="210" height="16" rx="4" fill="rgba(245,158,11,0.4)"/>
+        <text x="25" y="170" fill="#fbbf24" font-size="9" font-weight="600">DeepSeek</text>
+        <rect x="20" y="178" width="170" height="16" rx="4" fill="rgba(239,68,68,0.4)"/>
+        <text x="25" y="190" fill="#f87171" font-size="9" font-weight="600">Mistral</text>
+        <rect x="20" y="198" width="160" height="16" rx="4" fill="rgba(168,85,247,0.4)"/>
+        <text x="25" y="210" fill="#c084fc" font-size="9" font-weight="600">OpenRouter</text>
+
+        <!-- Finish line -->
+        <line x1="230" y1="115" x2="230" y2="218" stroke="#34d399" stroke-width="2" stroke-dasharray="4 4"/>
+        <text x="250" y="170" fill="#34d399" font-size="12" font-weight="800">Done!</text>
+        <text x="250" y="185" fill="#34d399" font-size="10">3.5 seconds</text>
+      </svg>
+      <p class="diagram-caption">Same work, but all happening at the same time &mdash; so it's as fast as the slowest single model</p>
+    </div>
+  </section>
+
+  <!-- SECTION 2: The 5 AI Models -->
+  <section>
+    <div class="section-number" style="background: var(--green-bg); color: var(--green-light);">2</div>
+    <h2>The 5 AI Models</h2>
+    <p>These are the AI services that answer your question. Each has different strengths, which is exactly why asking all of them is valuable:</p>
+
+    <div class="provider-grid">
+      <div class="provider-card" style="border-top: 3px solid #3b82f6;">
+        <div class="name" style="color: #60a5fa;">OpenAI</div>
+        <div class="model">GPT-5.2</div>
+        <div class="cost">~$0.03/question</div>
+      </div>
+      <div class="provider-card" style="border-top: 3px solid #10b981;">
+        <div class="name" style="color: #34d399;">Gemini</div>
+        <div class="model">Gemini 2.0 Flash</div>
+        <div class="cost">~$0.001/question</div>
+      </div>
+      <div class="provider-card" style="border-top: 3px solid #f59e0b;">
+        <div class="name" style="color: #fbbf24;">DeepSeek</div>
+        <div class="model">DeepSeek Chat</div>
+        <div class="cost">~$0.01/question</div>
+      </div>
+      <div class="provider-card" style="border-top: 3px solid #ef4444;">
+        <div class="name" style="color: #f87171;">Mistral</div>
+        <div class="model">Mistral Large</div>
+        <div class="cost">~$0.02/question</div>
+      </div>
+      <div class="provider-card" style="border-top: 3px solid #a855f7;">
+        <div class="name" style="color: #c084fc;">OpenRouter</div>
+        <div class="model">Llama 3.1 70B</div>
+        <div class="cost">~$0.005/question</div>
+      </div>
+    </div>
+
+    <p style="font-size: 0.9rem; color: var(--slate-400);">Total cost for all 5: roughly <strong style="color: var(--green-light);">$0.05 &ndash; $0.25</strong> per question. You don't need all 5 &mdash; it works with whatever keys you have.</p>
+  </section>
+
+  <!-- SECTION 3: Installation -->
+  <section>
+    <div class="section-number" style="background: var(--amber-bg); color: var(--amber-light);">3</div>
+    <h2>Installation</h2>
+    <p class="lead">Three steps. That's it.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num" style="background: var(--blue-bg); color: var(--blue-light);">1</div>
+        <div class="step-body">
+          <h4>Install the package</h4>
+          <p>Open your terminal and run this command. It downloads the software from npm (a big library of tools).</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span>
+              Terminal
+            </div>
+            <div class="code-body">npm install -g cross-review-mcp</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num" style="background: var(--green-bg); color: var(--green-light);">2</div>
+        <div class="step-body">
+          <h4>Get API keys</h4>
+          <p>Each AI company gives you a "key" (like a password) so you can use their service. Sign up at any of these:</p>
+          <ul style="list-style: none; padding: 0; margin: 0.5rem 0;">
+            <li style="padding: 0.25rem 0; font-size: 0.9rem; color: var(--slate-300);">&#x2022; <a href="https://platform.openai.com" style="color: var(--blue-light);">OpenAI</a> &mdash; for GPT-5.2</li>
+            <li style="padding: 0.25rem 0; font-size: 0.9rem; color: var(--slate-300);">&#x2022; <a href="https://aistudio.google.com" style="color: var(--green-light);">Google AI Studio</a> &mdash; for Gemini</li>
+            <li style="padding: 0.25rem 0; font-size: 0.9rem; color: var(--slate-300);">&#x2022; <a href="https://platform.deepseek.com" style="color: var(--amber-light);">DeepSeek</a></li>
+            <li style="padding: 0.25rem 0; font-size: 0.9rem; color: var(--slate-300);">&#x2022; <a href="https://console.mistral.ai" style="color: var(--red-light);">Mistral</a></li>
+            <li style="padding: 0.25rem 0; font-size: 0.9rem; color: var(--slate-300);">&#x2022; <a href="https://openrouter.ai" style="color: var(--purple-light);">OpenRouter</a> &mdash; gives access to many models</li>
+          </ul>
+          <p style="font-size: 0.85rem; color: var(--slate-400); margin: 0.5rem 0 0;"><strong>Don't have all 5?</strong> That's totally fine. Even 2 keys will work. The more you have, the better the consensus.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num" style="background: var(--amber-bg); color: var(--amber-light);">3</div>
+        <div class="step-body">
+          <h4>Create a .env file</h4>
+          <p>In your project folder, create a file called <code style="background: #1e293b; padding: 0.15rem 0.4rem; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">.env</code> and paste your keys:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span>
+              .env
+            </div>
+            <div class="code-body"><span class="comment"># Paste your keys here (use whichever ones you have)</span>
+<span class="var">OPENAI_API_KEY</span>=<span class="string">sk-proj-your-key-here</span>
+<span class="var">GEMINI_API_KEY</span>=<span class="string">AIzaSy-your-key-here</span>
+<span class="var">DEEPSEEK_API_KEY</span>=<span class="string">sk-your-key-here</span>
+<span class="var">MISTRAL_API_KEY</span>=<span class="string">your-key-here</span>
+<span class="var">OPENROUTER_API_KEY</span>=<span class="string">sk-or-v1-your-key-here</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4: How to Use It -->
+  <section>
+    <div class="section-number" style="background: var(--purple-bg); color: var(--purple-light);">4</div>
+    <h2>How to Use It</h2>
+    <p class="lead">Three ways to use cross-review, depending on how you like to work:</p>
+
+    <h3>Option A: Command Line</h3>
+    <p>Just type a command in your terminal. Great when you're already coding:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span>
+        Terminal
+      </div>
+      <div class="code-body"><span class="comment"># Ask about a bug you're stuck on</span>
+cross-review dev \
+  <span class="keyword">--error</span> <span class="string">"PORT IS IN USE at 6277"</span> \
+  <span class="keyword">--tech</span> <span class="string">"Node.js"</span> \
+  <span class="keyword">--env</span> <span class="string">"macOS"</span> \
+  <span class="keyword">--tried</span> <span class="string">"Killed the process, restarted"</span></div>
+    </div>
+
+    <h3>Option B: Claude Desktop</h3>
+    <p>If you use Claude Desktop (the desktop app from Anthropic), cross-review works inside it automatically. Add this to your MCP config:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span>
+        claude_desktop_config.json
+      </div>
+      <div class="code-body">{
+  <span class="string">"mcpServers"</span>: {
+    <span class="string">"cross-review"</span>: {
+      <span class="string">"command"</span>: <span class="string">"npx"</span>,
+      <span class="string">"args"</span>: [<span class="string">"cross-review-mcp"</span>]
+    }
+  }
+}</div>
+    </div>
+    <p>Then just ask Claude naturally: <em>"Can you cross-review this code for security issues?"</em></p>
+
+    <h3>Option C: Web Dashboard</h3>
+    <p>Start the server with a visual dashboard so you can watch the models work in real time:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-dot red"></span><span class="code-dot yellow"></span><span class="code-dot green"></span>
+        Terminal
+      </div>
+      <div class="code-body"><span class="comment"># Start the dashboard</span>
+npm run serve
+
+<span class="comment"># Then open your browser to:</span>
+<span class="comment"># http://localhost:6280</span></div>
+    </div>
+  </section>
+
+  <!-- SECTION 5: Consensus - How Agreement Works -->
+  <section>
+    <div class="section-number" style="background: var(--green-bg); color: var(--green-light);">5</div>
+    <h2>How the Consensus Works</h2>
+    <p>After all 5 models reply, the system figures out what they agree on. Here's a real example:</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 700 320" fill="none">
+        <!-- Title -->
+        <text x="350" y="20" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">Example: "PORT IS IN USE at 6277"</text>
+        <text x="350" y="38" text-anchor="middle" fill="#64748b" font-size="11">What each model said:</text>
+
+        <!-- Model cards -->
+        <!-- Gemini -->
+        <rect x="10" y="55" width="128" height="90" rx="10" fill="rgba(16,185,129,0.1)" stroke="#10b981" stroke-width="1.5"/>
+        <text x="74" y="75" text-anchor="middle" fill="#34d399" font-size="11" font-weight="700">Gemini</text>
+        <rect x="42" y="82" width="64" height="18" rx="4" fill="#10b981" opacity="0.2"/>
+        <text x="74" y="95" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">95%</text>
+        <text x="74" y="115" text-anchor="middle" fill="#94a3b8" font-size="9">"Process bound</text>
+        <text x="74" y="126" text-anchor="middle" fill="#94a3b8" font-size="9">to port"</text>
+        <text x="74" y="140" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600">Agrees</text>
+
+        <!-- OpenAI -->
+        <rect x="148" y="55" width="128" height="90" rx="10" fill="rgba(59,130,246,0.1)" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="212" y="75" text-anchor="middle" fill="#60a5fa" font-size="11" font-weight="700">OpenAI</text>
+        <rect x="180" y="82" width="64" height="18" rx="4" fill="#3b82f6" opacity="0.2"/>
+        <text x="212" y="95" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="700">86%</text>
+        <text x="212" y="115" text-anchor="middle" fill="#94a3b8" font-size="9">"TCP port</text>
+        <text x="212" y="126" text-anchor="middle" fill="#94a3b8" font-size="9">still bound"</text>
+        <text x="212" y="140" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600">Agrees</text>
+
+        <!-- DeepSeek -->
+        <rect x="286" y="55" width="128" height="90" rx="10" fill="rgba(245,158,11,0.1)" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="350" y="75" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="700">DeepSeek</text>
+        <rect x="318" y="82" width="64" height="18" rx="4" fill="#f59e0b" opacity="0.2"/>
+        <text x="350" y="95" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">78%</text>
+        <text x="350" y="115" text-anchor="middle" fill="#94a3b8" font-size="9">"Resource</text>
+        <text x="350" y="126" text-anchor="middle" fill="#94a3b8" font-size="9">conflict"</text>
+        <text x="350" y="140" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="600">~ Different angle</text>
+
+        <!-- Mistral -->
+        <rect x="424" y="55" width="128" height="90" rx="10" fill="rgba(239,68,68,0.1)" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="488" y="75" text-anchor="middle" fill="#f87171" font-size="11" font-weight="700">Mistral</text>
+        <rect x="456" y="82" width="64" height="18" rx="4" fill="#ef4444" opacity="0.2"/>
+        <text x="488" y="95" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700">82%</text>
+        <text x="488" y="115" text-anchor="middle" fill="#94a3b8" font-size="9">"Leftover</text>
+        <text x="488" y="126" text-anchor="middle" fill="#94a3b8" font-size="9">process"</text>
+        <text x="488" y="140" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600">Agrees</text>
+
+        <!-- OpenRouter -->
+        <rect x="562" y="55" width="128" height="90" rx="10" fill="rgba(168,85,247,0.1)" stroke="#a855f7" stroke-width="1.5"/>
+        <text x="626" y="75" text-anchor="middle" fill="#c084fc" font-size="11" font-weight="700">OpenRouter</text>
+        <rect x="594" y="82" width="64" height="18" rx="4" fill="#a855f7" opacity="0.2"/>
+        <text x="626" y="95" text-anchor="middle" fill="#c084fc" font-size="10" font-weight="700">81%</text>
+        <text x="626" y="115" text-anchor="middle" fill="#94a3b8" font-size="9">"Port still</text>
+        <text x="626" y="126" text-anchor="middle" fill="#94a3b8" font-size="9">in use"</text>
+        <text x="626" y="140" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600">Agrees</text>
+
+        <!-- Convergence arrows -->
+        <line x1="74" y1="150" x2="350" y2="195" stroke="#10b981" stroke-width="1" opacity="0.4"/>
+        <line x1="212" y1="150" x2="350" y2="195" stroke="#3b82f6" stroke-width="1" opacity="0.4"/>
+        <line x1="350" y1="150" x2="350" y2="195" stroke="#f59e0b" stroke-width="1" opacity="0.3" stroke-dasharray="3 3"/>
+        <line x1="488" y1="150" x2="350" y2="195" stroke="#ef4444" stroke-width="1" opacity="0.4"/>
+        <line x1="626" y1="150" x2="350" y2="195" stroke="#a855f7" stroke-width="1" opacity="0.4"/>
+
+        <!-- Consensus verdict box -->
+        <rect x="140" y="190" width="420" height="110" rx="14" fill="rgba(16,185,129,0.08)" stroke="#10b981" stroke-width="2"/>
+        <text x="350" y="218" text-anchor="middle" fill="#34d399" font-size="14" font-weight="800">CONSENSUS VERDICT</text>
+        <text x="350" y="243" text-anchor="middle" fill="#cbd5e1" font-size="11">Root Cause: Another process is bound to port 6277</text>
+        <text x="350" y="263" text-anchor="middle" fill="#94a3b8" font-size="11">Fix: <tspan font-family="'JetBrains Mono', monospace" fill="#60a5fa">lsof -i :6277</tspan> then <tspan font-family="'JetBrains Mono', monospace" fill="#60a5fa">kill -9 &lt;PID&gt;</tspan></text>
+        <text x="350" y="288" text-anchor="middle" fill="#64748b" font-size="10">Confidence: 95% &bull; 4/5 models agree &bull; 1 alternative perspective</text>
+      </svg>
+      <p class="diagram-caption">4 models agree it's a port conflict &mdash; DeepSeek calls it a "resource conflict" (same idea, different words)</p>
+    </div>
+
+    <div class="analogy">
+      <p>When 4 out of 5 doctors say the same thing, you can be pretty confident. But the 5th doctor's different opinion might be worth considering too &mdash; cross-review keeps both!</p>
+    </div>
+  </section>
+
+  <!-- SECTION 6: The 4 Tools -->
+  <section>
+    <div class="section-number" style="background: var(--blue-bg); color: var(--blue-light);">6</div>
+    <h2>What You Can Do (4 Tools)</h2>
+    <p class="lead">Cross-review exposes 4 tools you can call:</p>
+
+    <div class="tool-card" style="border-left: 3px solid var(--green);">
+      <div class="tool-name">get_dev_guidance</div>
+      <div class="tool-desc">Stuck on a bug? Describe your error and get 5 expert opinions plus a consensus fix.</div>
+      <ul class="param-list">
+        <li><span class="param-name">error</span> <span class="required">required</span> &mdash; the error message or problem</li>
+        <li><span class="param-name">technology</span> <span class="required">required</span> &mdash; what tech you're using (Node.js, Docker, etc.)</li>
+        <li><span class="param-name">environment</span> <span class="required">required</span> &mdash; your OS (macOS, Linux, Windows)</li>
+        <li><span class="param-name">attempts</span> <span class="required">required</span> &mdash; what you've already tried</li>
+      </ul>
+    </div>
+
+    <div class="tool-card" style="border-left: 3px solid var(--blue);">
+      <div class="tool-name">review_content</div>
+      <div class="tool-desc">Submit code or text for peer review. Each model checks for different issues.</div>
+      <ul class="param-list">
+        <li><span class="param-name">content</span> <span class="required">required</span> &mdash; your code or text to review</li>
+        <li><span class="param-name">reviewType</span> <span class="required">required</span> &mdash; security, performance, correctness, style, or general</li>
+      </ul>
+    </div>
+
+    <div class="tool-card" style="border-left: 3px solid var(--amber);">
+      <div class="tool-name">get_cache_stats</div>
+      <div class="tool-desc">See how many questions were answered from memory (cached) vs. needing new API calls.</div>
+    </div>
+
+    <div class="tool-card" style="border-left: 3px solid var(--purple);">
+      <div class="tool-name">get_cost_summary</div>
+      <div class="tool-desc">Check how much you've spent on API calls today, this month, and per model.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 7: Server Modes -->
+  <section>
+    <div class="section-number" style="background: var(--red-bg); color: var(--red-light);">7</div>
+    <h2>Three Ways to Run the Server</h2>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Mode</th>
+          <th>Command</th>
+          <th>What It Does</th>
+          <th>Best For</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong style="color: var(--blue-light);">stdio</strong></td>
+          <td><code style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">npm start</code></td>
+          <td>Talks directly to Claude Desktop through a pipe</td>
+          <td>Local use with Claude</td>
+        </tr>
+        <tr>
+          <td><strong style="color: var(--green-light);">http</strong></td>
+          <td><code style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">npm run serve</code></td>
+          <td>Web server with dashboard you can see in a browser</td>
+          <td>Dashboard + remote access</td>
+        </tr>
+        <tr>
+          <td><strong style="color: var(--purple-light);">both</strong></td>
+          <td><code style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">npm run serve:both</code></td>
+          <td>Both at the same time &mdash; local Claude + web dashboard</td>
+          <td>Maximum flexibility</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="analogy">
+      <p><strong>stdio</strong> is like a walkie-talkie &mdash; direct, private communication between your tool and the server. <strong>http</strong> is like a website &mdash; anyone on your network can open it in a browser. <strong>both</strong> is having both the walkie-talkie and the website at once.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 8: Cost & Performance -->
+  <section>
+    <div class="section-number" style="background: var(--green-bg); color: var(--green-light);">8</div>
+    <h2>Cost &amp; Speed</h2>
+
+    <table class="compare-table">
+      <thead>
+        <tr><th>What You Do</th><th>Time</th><th>Cost</th><th>Models Used</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Ask 1 AI model</td><td>3&ndash;5 sec</td><td>$0.01&ndash;$0.05</td><td>1</td></tr>
+        <tr><td><strong>Cross-Review (all 5)</strong></td><td><strong>3&ndash;5 sec</strong></td><td>$0.05&ndash;$0.25</td><td>5</td></tr>
+        <tr><td>Cached (same question again)</td><td><strong>&lt;0.1 sec</strong></td><td><strong>$0.00</strong></td><td>0</td></tr>
+      </tbody>
+    </table>
+
+    <p>The key insight: <strong>asking 5 models takes the same TIME as asking 1</strong>, because they all run in parallel. It costs a bit more per question, but you get 5x the perspectives.</p>
+  </section>
+
+  <!-- SECTION 9: Troubleshooting -->
+  <section>
+    <div class="section-number" style="background: var(--amber-bg); color: var(--amber-light);">9</div>
+    <h2>Common Questions</h2>
+
+    <div class="faq-item">
+      <div class="faq-q">"Error: Missing API key"</div>
+      <div class="faq-a">Create a <code>.env</code> file with your API keys. See Step 3 in the Installation section above.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">"No model responses"</div>
+      <div class="faq-a">Check that your API keys are correct, haven't expired, and that you have internet access. Try running <code>node test/test-keys.mjs</code> to verify.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">"The answer isn't helpful"</div>
+      <div class="faq-a">Give more context! The more details you provide (technology, OS, what you already tried), the better the answers. Like asking a doctor &mdash; "it hurts" is less useful than "my left knee hurts when I run."</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">"Do I need all 5 API keys?"</div>
+      <div class="faq-a">No! Even 2 keys will work. The system uses whatever keys you provide. More models = better consensus, but any combination works.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">"Is this free?"</div>
+      <div class="faq-a">The software itself is free and open source. But the AI services charge per question (see Cost & Speed above). Gemini is practically free, OpenAI is the most expensive at ~$0.03 per question.</div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="text-align: center; padding: 3rem 0; color: #475569; font-size: 0.85rem; border-top: 1px solid #1e293b;">
+    <p><a href="index.html" style="color: #64748b; text-decoration: none;">&#x2190; Back to docs home</a></p>
+    <p style="margin-top: 0.5rem;">Cross-Review MCP v0.6.0 &middot; March 2026</p>
+  </footer>
+</main>
+</body>
+</html>
