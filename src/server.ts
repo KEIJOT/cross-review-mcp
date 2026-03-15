@@ -59,8 +59,8 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
     });
   }
 
-  // Parse JSON for MCP endpoint
-  app.use('/mcp', express.json());
+  // Parse JSON for MCP POST only — must not touch GET (SSE) connections
+  app.post('/mcp', express.json());
 
   // Dashboard
   app.get('/', (_req: express.Request, res: express.Response) => {
@@ -120,27 +120,41 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
     });
   });
 
-  // MCP StreamableHTTP endpoint - handles POST, GET, DELETE
-  app.all('/mcp', async (req: express.Request, res: express.Response) => {
+  // MCP StreamableHTTP — GET opens SSE stream for server-to-client notifications
+  app.get('/mcp', async (req: express.Request, res: express.Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (sessionId && transports.has(sessionId)) {
+      // Disable timeouts to keep SSE stream alive
+      req.socket.setTimeout(0);
+      req.socket.setKeepAlive(true);
+      const transport = transports.get(sessionId)!;
+      await transport.handleRequest(
+        req as unknown as IncomingMessage,
+        res as unknown as ServerResponse,
+      );
+    } else {
+      res.status(400).json({ error: 'Missing or invalid session ID' });
+    }
+  });
+
+  // MCP StreamableHTTP — DELETE closes session
+  app.delete('/mcp', async (req: express.Request, res: express.Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (sessionId && transports.has(sessionId)) {
+      const transport = transports.get(sessionId)!;
+      await transport.handleRequest(
+        req as unknown as IncomingMessage,
+        res as unknown as ServerResponse,
+      );
+    } else {
+      res.status(404).json({ error: 'Session not found' });
+    }
+  });
+
+  // MCP StreamableHTTP — POST handles initialization and tool calls
+  app.post('/mcp', async (req: express.Request, res: express.Response) => {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
-    if (req.method === 'GET' || req.method === 'DELETE') {
-      // GET opens SSE stream, DELETE closes session
-      if (sessionId && transports.has(sessionId)) {
-        const transport = transports.get(sessionId)!;
-        await transport.handleRequest(
-          req as unknown as IncomingMessage,
-          res as unknown as ServerResponse,
-        );
-      } else if (req.method === 'DELETE') {
-        res.status(404).json({ error: 'Session not found' });
-      } else {
-        res.status(400).json({ error: 'Missing or invalid session ID' });
-      }
-      return;
-    }
-
-    // POST - either initialization or existing session message
     if (sessionId && transports.has(sessionId)) {
       // Existing session
       const transport = transports.get(sessionId)!;
