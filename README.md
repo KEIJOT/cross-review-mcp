@@ -14,12 +14,10 @@ You:  "Why does my app crash on startup?"
 
 Visual, interactive documentation — no engineering degree required:
 
-- **[Documentation Home](docs/index.html)** — Landing page with animated architecture diagram
-- **[User Guide](docs/guide.html)** — Install, configure, use — written so anyone can follow
-- **[Architecture](docs/architecture.html)** — System design with SVG diagrams and data flow
-- **[Project Status](docs/status.html)** — Honest visual status of every component
-
-> Enable [GitHub Pages](https://pages.github.com/) on the `docs/` folder to view them rendered at `https://yourusername.github.io/LLMAPI/`
+- **[Documentation Home](https://keijot.github.io/cross-review-mcp/)** — Landing page with animated architecture diagram
+- **[User Guide](https://keijot.github.io/cross-review-mcp/guide.html)** — Install, configure, use — written so anyone can follow
+- **[Architecture](https://keijot.github.io/cross-review-mcp/architecture.html)** — System design with SVG diagrams and data flow
+- **[Project Status](https://keijot.github.io/cross-review-mcp/status.html)** — Honest visual status of every component
 
 ---
 
