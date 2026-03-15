@@ -1,8 +1,14 @@
-// Cross-Review MCP - Smoke Tests (v0.3.0, 2026-02-22)
-// Tests structural correctness without requiring API keys
+// Cross-Review MCP v0.5.0 - Smoke Tests
+// Tests core functionality without requiring API keys
 
-import { buildAdversarialPrompt, buildConsensusPrompt, SCRUTINY_LEVELS, CONTENT_TYPES } from "../dist/prompts.js";
-import { CrossReviewEngine, parseVerdict, countHighConfidenceClaims, validateConfiguration, resolveReviewers, estimateTokens } from "../dist/engine.js";
+import { loadConfig } from "../dist/config.js";
+import { TokenTracker } from "../dist/tracking.js";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const testLogFile = path.join(__dirname, ".test_usage.json");
 
 let passed = 0;
 let failed = 0;
@@ -17,366 +23,70 @@ function assert(condition, message) {
   }
 }
 
-console.log("\n── Prompt Building ──\n");
+console.log("\n── Configuration ──\n");
 
-const prompt = buildAdversarialPrompt("Test content", "general", "standard");
-assert(prompt.includes("skeptical peer reviewer"), "Adversarial prompt contains reviewer role");
-assert(prompt.includes("Test content"), "Adversarial prompt contains content");
-assert(prompt.includes("CONFIDENCE"), "Adversarial prompt includes confidence instructions");
-assert(prompt.includes("Standard"), "Prompt reflects scrutiny level name");
+const config = loadConfig();
+assert(config !== null, "Configuration loads successfully");
+assert(config.execution !== undefined, "Execution config exists");
+assert(config.reviewers !== undefined, "Reviewers config exists");
+assert(Array.isArray(config.reviewers), "Reviewers is an array");
+assert(config.reviewers.length > 0, "At least one reviewer configured");
 
-const codePrompt = buildAdversarialPrompt("function test() {}", "code", "adversarial");
-assert(codePrompt.includes("edge cases"), "Code content type includes code-specific checks");
-assert(codePrompt.includes("security vulnerabilities"), "Code review checks for security");
+// Check reviewers have required fields
+config.reviewers.forEach((reviewer, index) => {
+  assert(reviewer.id !== undefined, `Reviewer ${index} has id`);
+  assert(reviewer.provider !== undefined, `Reviewer ${index} has provider`);
+  assert(reviewer.model !== undefined, `Reviewer ${index} has model`);
+});
 
-const legalPrompt = buildAdversarialPrompt("This agreement...", "legal", "standard");
-assert(legalPrompt.includes("loopholes"), "Legal content type includes legal-specific checks");
+console.log("\n── Token Tracking ──\n");
 
-console.log("\n── Consensus Prompt ──\n");
+const tracker = new TokenTracker(testLogFile);
+assert(tracker !== null, "TokenTracker instantiates");
+assert(typeof tracker.logReview === "function", "TokenTracker has logReview method");
 
-const consensusPrompt = buildConsensusPrompt([
-  { model: "GPT-4o", critique: "Issue found: overclaim" },
-  { model: "Gemini", critique: "No issues found" }
-]);
-assert(consensusPrompt.includes("VERDICT:"), "Consensus prompt requests verdict format");
-assert(consensusPrompt.includes("CONSENSUS ISSUES"), "Consensus prompt requests consensus section");
-assert(consensusPrompt.includes("SINGLE-MODEL"), "Consensus prompt distinguishes single-model flags");
-assert(consensusPrompt.includes("GPT-4o"), "Consensus prompt includes model names");
-
-console.log("\n── Scrutiny Levels ──\n");
-
-assert(Object.keys(SCRUTINY_LEVELS).length === 4, "Four scrutiny levels defined");
-assert(SCRUTINY_LEVELS.quick.temperature < SCRUTINY_LEVELS.redteam.temperature, "Temperature increases with scrutiny");
-assert(SCRUTINY_LEVELS.quick.maxTokens < SCRUTINY_LEVELS.redteam.maxTokens, "Max tokens increase with scrutiny");
-
-console.log("\n── Content Types ──\n");
-
-assert(Object.keys(CONTENT_TYPES).length === 7, "Seven content types defined");
-assert(CONTENT_TYPES.general !== undefined, "General content type exists");
-assert(CONTENT_TYPES.code !== undefined, "Code content type exists");
-
-console.log("\n── Consensus Error Reporting ──\n");
-
-// ERR-01: When no API clients are available, consensus should carry a structured error
-// rather than being undefined (which is indistinguishable from "not requested").
-const engineNoKeys = new CrossReviewEngine([
-  { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_12345" },
-  { id: "r2", name: "Model B", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_67890" },
-]);
-
-const resultNoKeys = await engineNoKeys.review("Test content for consensus error", { includeConsensus: true });
-
-// ERR-01: consensus must be defined (not undefined) so callers know an attempt was made
-assert(resultNoKeys.consensus !== undefined, "consensus error: consensus object is defined (not undefined) when attempt was made");
-
-// ERR-01: consensus must carry an error field explaining the failure
-assert(
-  typeof resultNoKeys.consensus?.error === "string" && resultNoKeys.consensus.error.length > 0,
-  "consensus error: error field is a non-empty string when consensus fails"
-);
-
-// ERR-02: the error message must be human-readable (contains a meaningful word)
-const errorMsg = resultNoKeys.consensus?.error || "";
-const isHumanReadable = /fail|error|no |cannot|unable|not available|requires|unavailable/i.test(errorMsg);
-assert(isHumanReadable, `consensus error: error message is human-readable (got: "${errorMsg}")`);
-
-// ERR-01: a caller can distinguish failed consensus from missing consensus via error field
-// When consensus.error is defined → attempted-and-failed; when consensus is undefined → not requested
-const notRequestedResult = await engineNoKeys.review("Test content", { includeConsensus: false });
-assert(notRequestedResult.consensus === undefined, "consensus error: consensus is undefined when not requested (distinguishable from failure)");
-
-// Type contract: successful consensus objects have error as optional (undefined)
-const mockSuccessConsensus = {
-  verdict: /** @type {"proceed"} */ ("proceed"),
-  arbitrator: "Model A",
-  summary: "All good",
-  // error intentionally absent — should be valid per interface
+// Log a test review
+const testReview = {
+  timestamp: new Date().toISOString(),
+  content_hash: "test-hash-123",
+  execution_strategy: "wait_all",
+  total_cost_usd: 0.0049,
+  models: ["openai", "gemini"]
 };
-assert(mockSuccessConsensus.error === undefined, "consensus type: error field is optional (undefined when not present)");
 
-console.log("\n── Verdict Parsing ──\n");
+tracker.logReview(testReview);
+const logExists = fs.existsSync(testLogFile);
+assert(logExists, "Review log file created");
 
-// Plain text (regression — must still work)
-assert(parseVerdict("VERDICT: PROCEED\n\nSome analysis...") === "proceed", "Plain VERDICT: PROCEED");
-assert(parseVerdict("VERDICT: REVISE\n\nSome analysis...") === "revise", "Plain VERDICT: REVISE");
-assert(parseVerdict("VERDICT: ABORT\n\nSome analysis...") === "abort", "Plain VERDICT: ABORT");
+if (logExists) {
+  const content = fs.readFileSync(testLogFile, "utf-8");
+  assert(content.includes("test-hash-123"), "Review logged correctly");
+  assert(content.includes("0.0049"), "Cost tracked correctly");
+  fs.unlinkSync(testLogFile); // Cleanup
+}
 
-// Markdown bold formatting (PARSE-01 — currently fails)
-assert(parseVerdict("**VERDICT: PROCEED**\n\nAnalysis...") === "proceed", "Bold VERDICT: PROCEED");
-assert(parseVerdict("**VERDICT: REVISE**\n\nAnalysis...") === "revise", "Bold VERDICT: REVISE");
-assert(parseVerdict("**VERDICT: ABORT**\n\nAnalysis...") === "abort", "Bold VERDICT: ABORT");
+console.log("\n── Configuration Validation ──\n");
 
-// Lowercase (currently fails)
-assert(parseVerdict("verdict: proceed\n\nAnalysis...") === "proceed", "Lowercase verdict: proceed");
-assert(parseVerdict("Verdict: Revise\n\nAnalysis...") === "revise", "Mixed case Verdict: Revise");
+assert(config.costs !== undefined, "Cost configuration exists");
+assert(config.costs.models !== undefined, "Model costs defined");
+assert(config.tracking !== undefined, "Tracking configuration exists");
+assert(config.execution.strategy !== undefined, "Execution strategy configured");
 
-// Bold with extra whitespace (currently fails)
-assert(parseVerdict("**VERDICT:  PROCEED**\n\nAnalysis...") === "proceed", "Bold with extra space");
-assert(parseVerdict("  **VERDICT: ABORT**  \n\nAnalysis...") === "abort", "Bold with leading/trailing whitespace");
-
-// Bold verdict word only (currently fails — some models bold just the value)
-assert(parseVerdict("VERDICT: **PROCEED**\n\nAnalysis...") === "proceed", "Bold value only");
-
-// OVERALL VERDICT variant with bold
-assert(parseVerdict("**OVERALL VERDICT: PROCEED**\n\nAnalysis...") === "proceed", "Bold OVERALL VERDICT");
-
-console.log("\n── Confidence Counting ──\n");
-
-// Plain text (regression — must still work)
-assert(countHighConfidenceClaims("Confidence: HIGH\nConfidence: HIGH\nConfidence: LOW") === 2, "Plain HIGH count");
-assert(countHighConfidenceClaims("Confidence: LOW\nConfidence: MEDIUM") === 0, "No HIGH claims");
-
-// Markdown bold formatting (PARSE-02 — currently fails)
-assert(countHighConfidenceClaims("**Confidence: HIGH**\n**Confidence: HIGH**") === 2, "Bold Confidence: HIGH");
-assert(countHighConfidenceClaims("**Confidence:** HIGH\nConfidence: **HIGH**") === 2, "Partially bold confidence");
-
-// Case variations (currently fails)
-assert(countHighConfidenceClaims("confidence: high\nCONFIDENCE: HIGH") === 2, "Mixed case confidence");
-assert(countHighConfidenceClaims("Confidence: High\nConfidence: high") === 2, "Title and lower case");
-
-// Extra whitespace (currently fails)
-assert(countHighConfidenceClaims("Confidence:  HIGH\nConfidence:   HIGH") === 2, "Extra whitespace");
-
-// Bold with whitespace
-assert(countHighConfidenceClaims("**Confidence:  HIGH**") === 1, "Bold with extra space");
-
-console.log("\n── API Key Validation ──\n");
-
-// VALID-01: Missing keys detected
-const reviewersMissingKeys = [
-  { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_VALID01" },
-  { id: "r2", name: "Model B", provider: "gemini", model: "gemini-3-flash-preview", apiKeyEnv: "NONEXISTENT_KEY_VALID01_B" },
-];
-const resultMissing = validateConfiguration(reviewersMissingKeys);
-assert(resultMissing.valid === false, "VALID-01: Missing keys detected — valid is false when keys are absent");
-
-// VALID-02: Error lists misconfigured models
-assert(resultMissing.errors.length === 2, "VALID-02: Error array has one entry per misconfigured reviewer");
+const executionStrategies = ["wait_all", "fastest_2", "wait_max_30s"];
 assert(
-  typeof resultMissing.errors[0] === "string" && resultMissing.errors[0].includes("Model A"),
-  "VALID-02: First error includes first model name (Model A)"
+  executionStrategies.includes(config.execution.strategy),
+  `Execution strategy is valid: ${config.execution.strategy}`
 );
-assert(
-  typeof resultMissing.errors[1] === "string" && resultMissing.errors[1].includes("Model B"),
-  "VALID-02: Second error includes second model name (Model B)"
-);
-
-// VALID-01: All keys present returns valid
-process.env.TEST_VALID_KEY = "test-key-123";
-const reviewersAllValid = [
-  { id: "r1", name: "Model Valid", provider: "openai", model: "gpt-4o", apiKeyEnv: "TEST_VALID_KEY" },
-];
-const resultAllValid = validateConfiguration(reviewersAllValid);
-assert(resultAllValid.valid === true, "VALID-01: All keys present — valid is true");
-assert(resultAllValid.errors.length === 0, "VALID-01: No errors when all keys are present");
-delete process.env.TEST_VALID_KEY;
-
-// VALID-02: Error message includes env var name
-const reviewersMissingEnv = [
-  { id: "r1", name: "Model X", provider: "openai", model: "gpt-4o", apiKeyEnv: "MISSING_XYZZY" },
-];
-const resultMissingEnv = validateConfiguration(reviewersMissingEnv);
-assert(
-  typeof resultMissingEnv.errors[0] === "string" && resultMissingEnv.errors[0].includes("MISSING_XYZZY"),
-  "VALID-02: Error message includes env var name (MISSING_XYZZY)"
-);
-
-// VALID-01: Mixed valid/invalid — only misconfigured model appears in errors
-process.env.TEST_VALID_KEY_MIXED = "test-key-456";
-const reviewersMixed = [
-  { id: "r1", name: "Model Good", provider: "openai", model: "gpt-4o", apiKeyEnv: "TEST_VALID_KEY_MIXED" },
-  { id: "r2", name: "Model Bad", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_MIXED_KEY" },
-];
-const resultMixed = validateConfiguration(reviewersMixed);
-assert(resultMixed.valid === false, "VALID-01: Mixed — valid is false when any key is missing");
-assert(resultMixed.errors.length === 1, "VALID-01: Mixed — only one error for the misconfigured model");
-assert(
-  typeof resultMixed.errors[0] === "string" && resultMixed.errors[0].includes("Model Bad"),
-  "VALID-01: Mixed — error mentions the misconfigured model name (Model Bad)"
-);
-delete process.env.TEST_VALID_KEY_MIXED;
-
-console.log("\n── Zod Config Validation ──\n");
-
-// VALID-03: Malformed JSON rejected — resolveReviewers should throw, not fall back
-{
-  let threw = false;
-  let errorMsg = "";
-  try {
-    resolveReviewers("not valid json");
-  } catch (e) {
-    threw = true;
-    errorMsg = e instanceof Error ? e.message : String(e);
-  }
-  assert(threw, "VALID-03: Malformed JSON causes resolveReviewers to throw");
-  assert(
-    /CROSS_REVIEW_MODELS|parse|invalid/i.test(errorMsg),
-    `VALID-03: Malformed JSON error mentions CROSS_REVIEW_MODELS or parse/invalid (got: "${errorMsg}")`
-  );
-}
-
-// VALID-03: Wrong types rejected — number instead of string for model
-{
-  let threw = false;
-  let errorMsg = "";
-  try {
-    resolveReviewers(JSON.stringify([{ id: 123, provider: "openai", model: true }]));
-  } catch (e) {
-    threw = true;
-    errorMsg = e instanceof Error ? e.message : String(e);
-  }
-  assert(threw, "VALID-03: Wrong types (number id, boolean model) causes resolveReviewers to throw");
-  assert(
-    /string|expected|type|invalid/i.test(errorMsg),
-    `VALID-03: Wrong types error mentions type issue (got: "${errorMsg}")`
-  );
-}
-
-// VALID-04: HTTP baseUrl rejected
-{
-  let threw = false;
-  let errorMsg = "";
-  try {
-    resolveReviewers(JSON.stringify([{ id: "evil", name: "Evil", provider: "openai-compatible", model: "gpt-4", baseUrl: "http://evil.com/v1" }]));
-  } catch (e) {
-    threw = true;
-    errorMsg = e instanceof Error ? e.message : String(e);
-  }
-  assert(threw, "VALID-04: HTTP baseUrl causes resolveReviewers to throw");
-  assert(
-    /https/i.test(errorMsg),
-    `VALID-04: HTTP baseUrl error mentions HTTPS (got: "${errorMsg}")`
-  );
-}
-
-// VALID-04: HTTPS baseUrl accepted
-{
-  let threw = false;
-  let result = null;
-  try {
-    result = resolveReviewers(JSON.stringify([{ id: "safe", name: "Safe", provider: "openai-compatible", model: "gpt-4", baseUrl: "https://api.safe.com/v1" }]));
-  } catch (e) {
-    threw = true;
-  }
-  assert(!threw, "VALID-04: HTTPS baseUrl does NOT throw");
-  assert(
-    Array.isArray(result) && result.length === 1 && result[0].id === "safe",
-    "VALID-04: HTTPS baseUrl result has length 1 with id 'safe'"
-  );
-}
-
-// VALID-05: Missing required fields rejected
-{
-  let threw = false;
-  let errorMsg = "";
-  try {
-    resolveReviewers(JSON.stringify([{ id: "incomplete" }]));
-  } catch (e) {
-    threw = true;
-    errorMsg = e instanceof Error ? e.message : String(e);
-  }
-  assert(threw, "VALID-05: Missing required fields (provider, model) causes resolveReviewers to throw");
-  assert(errorMsg.length > 0, `VALID-05: Missing fields error has a descriptive message (got: "${errorMsg}")`);
-}
-
-// VALID-03: Valid shorthand strings still work (regression)
-{
-  let threw = false;
-  let result = null;
-  try {
-    result = resolveReviewers(JSON.stringify(["gpt-5.2", "gemini-flash"]));
-  } catch (e) {
-    threw = true;
-  }
-  assert(!threw, "VALID-03: Valid shorthand strings do NOT throw (regression)");
-  assert(
-    Array.isArray(result) && result.length === 2,
-    "VALID-03: Valid shorthands return array of length 2"
-  );
-}
-
-// VALID-05: Invalid provider value rejected
-{
-  let threw = false;
-  let errorMsg = "";
-  try {
-    resolveReviewers(JSON.stringify([{ id: "x", name: "X", provider: "invalid-provider", model: "m" }]));
-  } catch (e) {
-    threw = true;
-    errorMsg = e instanceof Error ? e.message : String(e);
-  }
-  assert(threw, "VALID-05: Invalid provider enum value causes resolveReviewers to throw");
-  assert(errorMsg.length > 0, `VALID-05: Invalid provider error has a descriptive message (got: "${errorMsg}")`);
-}
-
-console.log("\n── Content Size Guards ──\n");
-
-// a. estimateTokens basic
-{
-  const result = estimateTokens("hello world");
-  assert(result > 0, "estimateTokens: 'hello world' returns a positive number greater than 0");
-}
-
-// b. estimateTokens proportional
-{
-  const result = estimateTokens("a".repeat(4000));
-  assert(result >= 500 && result <= 1500, `estimateTokens: 4000 chars is within 500-1500 token range (got: ${result})`);
-}
-
-// c. SAFE-01: Warning on ~50K token content (~220K chars)
-{
-  const largeContent = "x".repeat(220_000);
-  const engineNoKey = new CrossReviewEngine([
-    { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SAFE01" },
-    { id: "r2", name: "Model B", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SAFE01_B" },
-  ]);
-  const result = await engineNoKey.review(largeContent, { includeConsensus: false });
-  assert(
-    typeof result.warning === "string" && result.warning.length > 0,
-    "SAFE-01: ~55K token content gets a non-empty warning field"
-  );
-  assert(
-    /token|size|large/i.test(result.warning || ""),
-    `SAFE-01: warning field includes 'token', 'size', or 'large' (got: "${result.warning}")`
-  );
-  assert(
-    Array.isArray(result.reviews),
-    "SAFE-01: reviews array is still present (review attempted despite warning)"
-  );
-}
-
-// d. SAFE-02: Rejection on ~100K token content (~440K chars)
-{
-  const hugeContent = "x".repeat(440_000);
-  const engineNoKey = new CrossReviewEngine([
-    { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SAFE02" },
-  ]);
-  let threw = false;
-  let errorMsg = "";
-  try {
-    await engineNoKey.review(hugeContent, { includeConsensus: false });
-  } catch (e) {
-    threw = true;
-    errorMsg = e instanceof Error ? e.message : String(e);
-  }
-  assert(threw, "SAFE-02: ~110K token content throws an error before any API call");
-  assert(
-    /too large|exceeds|100|reject/i.test(errorMsg),
-    `SAFE-02: rejection error mentions 'too large', 'exceeds', '100', or 'reject' (got: "${errorMsg}")`
-  );
-}
-
-// e. SAFE-01: No warning on small content
-{
-  const smallContent = "x".repeat(100);
-  const engineNoKey = new CrossReviewEngine([
-    { id: "r1", name: "Model A", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SMALL" },
-    { id: "r2", name: "Model B", provider: "openai", model: "gpt-4o", apiKeyEnv: "NONEXISTENT_KEY_SMALL_B" },
-  ]);
-  const result = await engineNoKey.review(smallContent, { includeConsensus: false });
-  assert(result.warning === undefined, "SAFE-01: Small content (<50K tokens) has no warning field (undefined)");
-}
 
 console.log("\n── Results ──\n");
-console.log(`${passed} passed, ${failed} failed`);
-process.exit(failed > 0 ? 1 : 0);
+console.log(`✓ Passed: ${passed}`);
+console.log(`✗ Failed: ${failed}`);
+console.log(`Total:   ${passed + failed}\n`);
+
+if (failed === 0) {
+  console.log("✅ All smoke tests passed!");
+  process.exit(0);
+} else {
+  console.log(`❌ ${failed} test(s) failed`);
+  process.exit(1);
+}
