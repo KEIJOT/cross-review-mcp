@@ -11,12 +11,6 @@ export interface RateLimiterState {
   requestsPerMinute: number;
 }
 
-/**
- * Token Bucket Rate Limiter
- * - Prevents exceeding API rate limits
- * - Transparent waiting when quota exhausted
- * - Per-provider rate limit enforcement
- */
 export class RateLimiter {
   private limits: Map<string, RateLimiterState> = new Map();
   private config: Map<string, RateLimitConfig>;
@@ -24,7 +18,6 @@ export class RateLimiter {
   constructor(config: Record<string, RateLimitConfig>) {
     this.config = new Map(Object.entries(config));
 
-    // Initialize state for each provider
     for (const [providerId, limitConfig] of this.config.entries()) {
       const now = new Date();
       this.limits.set(providerId, {
@@ -36,43 +29,30 @@ export class RateLimiter {
     }
   }
 
-  /**
-   * Refill tokens based on time elapsed
-   */
   private refillTokens(providerId: string, state: RateLimiterState): void {
     const now = new Date();
     const elapsedMs = now.getTime() - state.lastRefillTime.getTime();
     const elapsedSeconds = elapsedMs / 1000;
 
-    // Token generation: requestsPerMinute / 60 = tokens per second
     const tokensPerSecond = state.requestsPerMinute / 60;
     const tokensGenerated = elapsedSeconds * tokensPerSecond;
 
     state.tokensAvailable = Math.min(
       state.tokensAvailable + tokensGenerated,
-      state.requestsPerMinute // Cap at max
+      state.requestsPerMinute
     );
     state.lastRefillTime = now;
   }
 
-  /**
-   * Calculate wait time if needed
-   */
-  private calculateWaitTime(
-    state: RateLimiterState
-  ): number {
+  private calculateWaitTime(state: RateLimiterState): number {
     if (state.tokensAvailable >= 1) return 0;
 
-    // Time until 1 token is available
     const tokensPerSecond = state.requestsPerMinute / 60;
     const secondsNeeded = 1 / tokensPerSecond;
 
-    return secondsNeeded * 1000; // Convert to ms
+    return secondsNeeded * 1000;
   }
 
-  /**
-   * Wait for rate limit quota
-   */
   public async waitIfNeeded(providerId: string): Promise<void> {
     if (!this.config.has(providerId)) {
       throw new Error(`Unknown provider: ${providerId}`);
@@ -85,10 +65,9 @@ export class RateLimiter {
 
       if (state.tokensAvailable >= 1) {
         state.tokensAvailable -= 1;
-        return; // Can proceed
+        return;
       }
 
-      // Calculate wait time
       const waitTimeMs = this.calculateWaitTime(state);
 
       if (waitTimeMs > 0) {
@@ -97,9 +76,6 @@ export class RateLimiter {
     }
   }
 
-  /**
-   * Get rate limiter state for a provider
-   */
   public getState(providerId: string): RateLimiterState | null {
     if (!this.limits.has(providerId)) return null;
 
@@ -109,9 +85,6 @@ export class RateLimiter {
     return { ...state };
   }
 
-  /**
-   * Get all rate limiter states
-   */
   public getAllStates(): Record<string, RateLimiterState> {
     const result: Record<string, RateLimiterState> = {};
 
@@ -123,9 +96,6 @@ export class RateLimiter {
     return result;
   }
 
-  /**
-   * Reset a provider's rate limit
-   */
   public reset(providerId: string): void {
     if (!this.config.has(providerId)) return;
 

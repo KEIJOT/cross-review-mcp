@@ -8,7 +8,7 @@ export interface WebhookEvent<T = any> {
   type: WebhookEventType;
   batchId: string;
   data: T;
-  signature: string; // HMAC-SHA256
+  signature: string;
 }
 
 export interface WebhookPayload {
@@ -17,8 +17,8 @@ export interface WebhookPayload {
   totalItems: number;
   completedItems: number;
   failedItems: number;
-  progress: number; // 0-100
-  estimatedTimeRemaining?: number; // seconds
+  progress: number;
+  estimatedTimeRemaining?: number;
 }
 
 export interface WebhookConfig {
@@ -28,13 +28,6 @@ export interface WebhookConfig {
   timeoutMs: number;
 }
 
-/**
- * Webhook Manager
- * - Send HTTP POST to user-provided URLs
- * - Event signatures with HMAC-SHA256
- * - Retry logic with exponential backoff
- * - Event deduplication
- */
 export class WebhookManager {
   private config: WebhookConfig;
   private sentEvents: Set<string> = new Set();
@@ -48,9 +41,6 @@ export class WebhookManager {
     };
   }
 
-  /**
-   * Generate HMAC-SHA256 signature
-   */
   private generateSignature(payload: string, secret: string): string {
     const crypto = require('crypto');
     return crypto
@@ -59,9 +49,6 @@ export class WebhookManager {
       .digest('hex');
   }
 
-  /**
-   * Send webhook with retries
-   */
   public async sendWebhook(
     url: string,
     event: WebhookEvent,
@@ -69,9 +56,8 @@ export class WebhookManager {
   ): Promise<boolean> {
     const eventKey = `${event.batchId}:${event.type}`;
 
-    // Dedup check
     if (this.sentEvents.has(eventKey)) {
-      return true; // Already sent
+      return true;
     }
 
     let lastError: Error | null = null;
@@ -103,7 +89,6 @@ export class WebhookManager {
         lastError = error instanceof Error ? error : new Error(String(error));
       }
 
-      // Exponential backoff
       if (attempt < this.config.maxRetries) {
         const backoff = Math.min(
           this.config.initialBackoffMs * Math.pow(2, attempt),
@@ -117,9 +102,6 @@ export class WebhookManager {
     return false;
   }
 
-  /**
-   * Clear sent events (for testing)
-   */
   public clear(): void {
     this.sentEvents.clear();
   }

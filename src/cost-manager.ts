@@ -18,22 +18,15 @@ export interface CostStats {
 }
 
 export interface CostConfig {
-  dailyBudget?: number;      // USD, optional max per day
-  monthlyBudget?: number;    // USD, optional max per month
-  dailyThreshold?: number;   // USD, alert when exceeded
+  dailyBudget?: number;
+  monthlyBudget?: number;
+  dailyThreshold?: number;
   trackingEnabled: boolean;
 }
 
-/**
- * Cost Manager
- * - Track spending by day/week/month
- * - Per-model cost breakdown
- * - Budget enforcement (hard limits)
- * - Threshold alerts
- */
 export class CostManager {
   private config: CostConfig;
-  private dailyCosts: Map<string, number> = new Map(); // YYYY-MM-DD -> cost
+  private dailyCosts: Map<string, number> = new Map();
   private modelCosts: Map<string, number> = new Map();
   private alerts: CostAlert[] = [];
   private totalCost: number = 0;
@@ -43,24 +36,19 @@ export class CostManager {
       trackingEnabled: config.trackingEnabled ?? true,
       dailyBudget: config.dailyBudget,
       monthlyBudget: config.monthlyBudget,
-      dailyThreshold: config.dailyThreshold ?? 10 // $10 default alert threshold
+      dailyThreshold: config.dailyThreshold ?? 10
     };
   }
 
-  /**
-   * Track a cost
-   */
   public trackCost(modelId: string, cost: number): void {
     if (!this.config.trackingEnabled) return;
 
     const today = this.getDateKey(new Date());
 
-    // Update totals
     this.totalCost += cost;
     this.dailyCosts.set(today, (this.dailyCosts.get(today) ?? 0) + cost);
     this.modelCosts.set(modelId, (this.modelCosts.get(modelId) ?? 0) + cost);
 
-    // Check thresholds
     const dailyCost = this.dailyCosts.get(today) ?? 0;
 
     if (this.config.dailyThreshold && dailyCost > this.config.dailyThreshold) {
@@ -73,7 +61,6 @@ export class CostManager {
       });
     }
 
-    // Check budget limits
     if (this.config.dailyBudget && dailyCost > this.config.dailyBudget) {
       this.alerts.push({
         timestamp: new Date(),
@@ -85,9 +72,6 @@ export class CostManager {
     }
   }
 
-  /**
-   * Check if budget allows more spending
-   */
   public canAfford(cost: number): boolean {
     const today = this.getDateKey(new Date());
     const dailyCost = this.dailyCosts.get(today) ?? 0;
@@ -106,16 +90,10 @@ export class CostManager {
     return true;
   }
 
-  /**
-   * Get date key for tracking
-   */
   private getDateKey(date: Date): string {
     return date.toISOString().split('T')[0];
   }
 
-  /**
-   * Get total cost for month
-   */
   private getMonthCost(date: Date): number {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -130,14 +108,10 @@ export class CostManager {
     return total;
   }
 
-  /**
-   * Get comprehensive cost stats
-   */
   public getStats(): CostStats {
     const now = new Date();
     const today = this.getDateKey(now);
 
-    // Calculate week (last 7 days)
     let weekCost = 0;
     for (let i = 0; i < 7; i++) {
       const date = new Date(now);
@@ -156,9 +130,6 @@ export class CostManager {
     };
   }
 
-  /**
-   * Get cost forecast
-   */
   public forecast(): {
     dailyAverage: number;
     projectedMonthly: number;
@@ -185,9 +156,6 @@ export class CostManager {
     };
   }
 
-  /**
-   * Clear alerts
-   */
   public clearAlerts(): void {
     this.alerts = [];
   }

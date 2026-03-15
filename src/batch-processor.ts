@@ -17,18 +17,11 @@ export interface BatchJob<T, R> {
 }
 
 export interface BatchProcessorConfig {
-  parallelWorkers: number;  // Number of concurrent workers
-  workerTimeoutMs: number;  // Timeout per item
-  maxBatchSize: number;     // Max items per batch
+  parallelWorkers: number;
+  workerTimeoutMs: number;
+  maxBatchSize: number;
 }
 
-/**
- * Batch Processor with Parallel Workers
- * - Queue multiple reviews for parallel processing
- * - 4 workers process items concurrently
- * - Respects rate limits and caching per worker
- * - Persistent job tracking
- */
 export class BatchProcessor<T, R> {
   private jobs: Map<string, BatchJob<T, R>> = new Map();
   private config: BatchProcessorConfig;
@@ -41,22 +34,15 @@ export class BatchProcessor<T, R> {
       maxBatchSize: config.maxBatchSize ?? 10000
     };
 
-    // Initialize worker queues
     for (let i = 0; i < this.config.parallelWorkers; i++) {
       this.workerQueues.push([]);
     }
   }
 
-  /**
-   * Generate unique batch ID
-   */
   private generateBatchId(): string {
     return `batch-${Date.now()}-${Math.random().toString(36).substring(7)}`;
   }
 
-  /**
-   * Create and queue batch job
-   */
   public async submitBatch(
     items: T[],
     processor: (item: T, workerIndex: number) => Promise<R>,
@@ -83,7 +69,6 @@ export class BatchProcessor<T, R> {
 
     this.jobs.set(batchId, batch);
 
-    // Start processing asynchronously (don't wait)
     void this.processBatch(batchId, processor).catch(err => {
       console.error(`Batch ${batchId} error:`, err);
       batch.status = 'FAILED';
@@ -92,9 +77,6 @@ export class BatchProcessor<T, R> {
     return batchId;
   }
 
-  /**
-   * Process batch with parallel workers
-   */
   private async processBatch(
     batchId: string,
     processor: (item: T, workerIndex: number) => Promise<R>
@@ -104,7 +86,6 @@ export class BatchProcessor<T, R> {
 
     batch.status = 'PROCESSING';
 
-    // Distribute items to workers
     const workers: Promise<void>[] = [];
 
     for (let workerIndex = 0; workerIndex < this.config.parallelWorkers; workerIndex++) {
@@ -113,14 +94,11 @@ export class BatchProcessor<T, R> {
       );
     }
 
-    // Wait for all workers
     await Promise.all(workers);
 
-    // Mark complete
     batch.status = 'COMPLETE';
     batch.completedAt = new Date();
 
-    // Trigger webhook if configured
     if (batch.webhookUrl) {
       void this.triggerWebhook(batch).catch(err => {
         console.error(`Webhook for ${batchId} failed:`, err);
@@ -128,9 +106,6 @@ export class BatchProcessor<T, R> {
     }
   }
 
-  /**
-   * Run individual worker
-   */
   private async runWorker(
     batch: BatchJob<T, R>,
     workerIndex: number,
@@ -141,7 +116,7 @@ export class BatchProcessor<T, R> {
     const endIndex = Math.min(startIndex + itemsPerWorker, batch.items.length);
 
     for (let i = startIndex; i < endIndex; i++) {
-      if (batch.status === 'FAILED') break; // Stop if batch failed
+      if (batch.status === 'FAILED') break;
 
       const item = batch.items[i];
 
@@ -168,29 +143,17 @@ export class BatchProcessor<T, R> {
     }
   }
 
-  /**
-   * Trigger webhook notification
-   */
   private async triggerWebhook(batch: BatchJob<T, R>): Promise<void> {
     if (!batch.webhookUrl) return;
 
-    try {
-      // Note: In production, use fetch() or axios
-      // This is a placeholder
-      console.log(`Webhook triggered: ${batch.webhookUrl}`, {
-        batchId: batch.id,
-        status: batch.status,
-        completedItems: batch.completedItems,
-        totalItems: batch.totalItems
-      });
-    } catch (error) {
-      console.error('Webhook failed:', error);
-    }
+    console.log(`Webhook triggered: ${batch.webhookUrl}`, {
+      batchId: batch.id,
+      status: batch.status,
+      completedItems: batch.completedItems,
+      totalItems: batch.totalItems
+    });
   }
 
-  /**
-   * Get batch status
-   */
   public getStatus(batchId: string): BatchJob<T, R> | null {
     const batch = this.jobs.get(batchId);
     if (!batch) return null;
@@ -201,9 +164,6 @@ export class BatchProcessor<T, R> {
     };
   }
 
-  /**
-   * Get batch results
-   */
   public getResults(batchId: string): R[] | null {
     const batch = this.jobs.get(batchId);
     if (!batch) return null;
@@ -212,9 +172,6 @@ export class BatchProcessor<T, R> {
     return batch.results;
   }
 
-  /**
-   * List all jobs
-   */
   public listJobs(filter?: { status?: BatchStatus }): Array<{
     id: string;
     status: BatchStatus;
