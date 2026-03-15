@@ -1,4 +1,4 @@
-// src/providers.ts - LLM Provider implementations (v0.5.2)
+// src/providers.ts - LLM Provider implementations (v0.6.0)
 import { ReviewerConfig } from './config.js';
 import { LLMResponse } from './types.js';
 

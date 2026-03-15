@@ -1,4 +1,4 @@
-// src/error-handling.ts - Robust Error Handling & Retry Logic (v0.5.2, 2026-03-15)
+// src/error-handling.ts - Robust Error Handling & Retry Logic (v0.6.0, 2026-03-15)
 
 export interface RetryConfig {
   maxRetries: number;

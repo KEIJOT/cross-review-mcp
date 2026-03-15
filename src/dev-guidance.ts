@@ -1,4 +1,4 @@
-// src/dev-guidance.ts - Developer Guidance Analysis (v0.5.2, 2026-03-15)
+// src/dev-guidance.ts - Developer Guidance Analysis (v0.6.0, 2026-03-15)
 // Use cross-LLM consensus to help developers solve blockers
 
 import { buildConsensus, type ConsensusVerdict } from './consensus-algorithm.js';

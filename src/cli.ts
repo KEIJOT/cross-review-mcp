@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// src/cli.ts - Command-line interface (v0.5.2, 2026-03-15)
+// src/cli.ts - Command-line interface (v0.6.0, 2026-03-15)
 
 import { program } from 'commander';
 import { loadConfig } from './config.js';
@@ -10,7 +10,7 @@ import { CacheManager } from './cache.js';
 import { CostManager } from './cost-manager.js';
 import { configureLogger } from './logger.js';
 
-const version = '0.5.2';
+const version = '0.6.0';
 
 // Shared instances that persist across CLI commands within one process
 const cache = new CacheManager({

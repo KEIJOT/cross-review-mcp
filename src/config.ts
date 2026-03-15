@@ -1,4 +1,4 @@
-// src/config.ts - Configuration loading and validation (v0.5)
+// src/config.ts - Configuration loading and validation (v0.6.0)
 import * as fs from 'fs';
 import { z } from 'zod';
 

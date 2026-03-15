@@ -1,4 +1,4 @@
-// src/cost-manager.ts - API Cost Tracking (v0.5.2, 2026-03-15)
+// src/cost-manager.ts - API Cost Tracking (v0.6.0, 2026-03-15)
 
 import * as fs from 'fs';
 import * as path from 'path';

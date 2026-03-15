@@ -1,4 +1,4 @@
-// src/cache.ts - Caching Layer for Review Results (v0.5.2, 2026-03-15)
+// src/cache.ts - Caching Layer for Review Results (v0.6.0, 2026-03-15)
 
 import * as crypto from 'crypto';
 import * as fs from 'fs';

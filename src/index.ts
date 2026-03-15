@@ -1,4 +1,4 @@
-// src/index.ts - MCP Server Entry Point (v0.5.2, 2026-03-15)
+// src/index.ts - MCP Server Entry Point (v0.6.0, 2026-03-15)
 // ⚠️ CRITICAL ORDER: Suppress console FIRST, then load dotenv, then other imports
 
 // Step 1: Suppress console BEFORE any imports that might log
