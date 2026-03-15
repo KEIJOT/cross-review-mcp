@@ -1,34 +1,38 @@
 {
   "name": "cross-review-mcp",
-  "version": "0.5.0",
-  "description": "Cross-LLM peer review - adversarial validation across multiple language models",
+  "version": "0.5.2",
+  "description": "Cross-LLM consensus for development blockers - Get guidance from 5 AI models simultaneously",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "cross-review-mcp": "./dist/index.js"
+    "cross-review-mcp": "./dist/index.js",
+    "cross-review": "./dist/cli.js"
   },
   "files": [
     "dist",
     "README.md",
-    "SECURITY.md",
-    "CONTRIBUTING.md"
+    "ROADMAP_v1.0.0.md",
+    ".env.example",
+    "claude.config.json"
   ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "cli": "node dist/cli.js",
     "dev": "tsc --watch",
     "test": "npm run build && node test/smoke.test.js",
     "prepublishOnly": "npm run build",
-    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js"
+    "inspect": "pkill -9 node; sleep 3; npx @modelcontextprotocol/inspector node dist/index.js"
   },
   "keywords": [
     "mcp",
     "modelcontextprotocol",
     "llm",
+    "consensus",
     "peer-review",
     "cross-validation",
-    "consensus",
-    "adversarial-testing",
+    "developer-guidance",
+    "debugging",
     "claude",
     "gpt",
     "gemini",
@@ -47,6 +51,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "commander": "^12.1.0",
     "openai": "^4.0.0",
     "zod": "^3.24.0"
   },

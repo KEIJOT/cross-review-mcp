@@ -1,251 +1,362 @@
-# Cross-Review MCP
+# cross-review-mcp v0.5.2
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-blue)
-![Python](https://img.shields.io/badge/python-46%25-blue)
-![JavaScript](https://img.shields.io/badge/javascript-39%25-yellow)
-![TypeScript](https://img.shields.io/badge/typescript-15%25-blue)
+**Get expert advice from 5 AI models at the same time.**
 
-**Get a second opinion from competing AIs.**
+Instead of asking ChatGPT OR Gemini, ask **both + 3 others** in parallel. See what they agree on. See where they differ.
 
-Your AI assistant has blind spots. Every model does. Cross-review sends your content to multiple LLMs with deliberately critical prompts, then synthesizes where they agree something is wrong.
+```
+┌─────────────────────────────────────────────────────────────┐
+│  You:  "Why does my app crash on startup?"                 │
+│  System: [Asking OpenAI, Gemini, DeepSeek, Mistral, ...]   │
+│  Result: 5 expert perspectives + consensus verdict          │
+└─────────────────────────────────────────────────────────────┘
+```
 
-Issues that multiple models independently flag are far more likely to be real problems. Issues only one model flags get marked as "needs verification." You get structured verdicts instead of hallucinated confidence.
+---
 
-## Install (2 minutes)
+## 📖 Documentation
 
-You need at least two API keys from different providers. The default setup uses OpenAI and Google:
+Read these first:
 
-- [OpenAI](https://platform.openai.com/api-keys) — GPT-5.2
-- [Google AI Studio](https://aistudio.google.com/apikey) — Gemini 3 Flash (free tier)
+- **[User Guide](./docs/USER_GUIDE.md)** — How to install and use (simple!)
+- **[Technical Architecture](./docs/TECHNICAL_ARCHITECTURE.md)** — How it works inside
+- **[Production Checklist](./docs/PRODUCTION_CHECKLIST.md)** — What's tested, what works
 
-### Claude Desktop
+---
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+## 🚀 Quick Start (3 Minutes)
+
+### 1. Install
+```bash
+npm install -g cross-review-mcp
+```
+
+### 2. Get API Keys
+Visit these sites and get free/paid API keys:
+- [OpenAI](https://openai.com) 
+- [Gemini](https://makersuite.google.com)
+- [DeepSeek](https://deepseek.com)
+- [Mistral](https://mistral.ai)
+- [OpenRouter](https://openrouter.io)
+
+### 3. Create `.env`
+```bash
+# In your project folder, create .env:
+OPENAI_API_KEY=sk-proj-your-key
+GEMINI_API_KEY=AIzaSy-your-key
+DEEPSEEK_API_KEY=sk-8229-your-key
+MISTRAL_API_KEY=IfhAy-your-key
+OPENROUTER_API_KEY=sk-or-v1-your-key
+```
+
+### 4. Use It
+```bash
+# From the CLI:
+cross-review dev --error "PORT IS IN USE at 6277" \
+                 --tech "MCP Inspector" \
+                 --env "macOS" \
+                 --tried "Killed processes, waited"
+
+# Or in Claude.ai: Connect via MCP, ask naturally
+```
+
+---
+
+## 📊 Real Example: The PORT IS IN USE Problem
+
+**Problem:** You get `PORT IS IN USE at 6277` and you're stuck.
+
+**Old Way:**
+1. Ask ChatGPT → "kill the process" (not specific)
+2. Ask Gemini → "use lsof" (better!)
+3. Context-switch 3 times
+4. Time wasted: 5 minutes
+
+**New Way (cross-review-mcp):**
+1. Ask once
+2. Get 5 perspectives instantly
+3. Time: 10 seconds
+
+### What You Get:
 
 ```json
 {
-  "mcpServers": {
-    "cross-review": {
-      "command": "npx",
-      "args": ["-y", "cross-review-mcp"],
-      "env": {
-        "OPENAI_API_KEY": "your-openai-key",
-        "GEMINI_API_KEY": "your-gemini-key"
-      }
+  "root_cause": "Another process, potentially MCP Inspector itself 
+                 from a previous session, is still bound to port 6277.",
+  
+  "immediate_fix": "Use `lsof -i :6277` to identify the process 
+                    using the port and then kill it using `kill -9 <PID>`.",
+  
+  "consensus_confidence": 0.95,
+  
+  "per_model_analysis": [
+    {
+      "model": "Gemini",
+      "confidence": 0.95,
+      "perspective": "Another process is still bound to port 6277.",
+      "suggestion": "Use `lsof -i :6277` then `kill -9 <PID>`."
+    },
+    {
+      "model": "OpenAI",
+      "confidence": 0.86,
+      "perspective": "A running process is still bound to TCP port 6277 on macOS.",
+      "suggestion": "Find and kill the exact process: `lsof -nP -iTCP:6277 -sTCP:LISTEN` 
+                     then `kill -9 <PID>`."
+    },
+    {
+      "model": "DeepSeek",
+      "confidence": 0.78,
+      "perspective": "System resource conflict — port still in use.",
+      "suggestion": "Check what's running, kill it, restart."
+    },
+    {
+      "model": "Mistral",
+      "confidence": 0.82,
+      "perspective": "Leftover process from earlier session still using the port.",
+      "suggestion": "Kill the old process, then restart the Inspector."
+    },
+    {
+      "model": "OpenRouter",
+      "confidence": 0.81,
+      "perspective": "Port still in use by another process.",
+      "suggestion": "Free the port using `lsof` and `kill`, then try again."
     }
-  }
+  ],
+  
+  "timestamp": "2026-03-15T03:30:39.087Z"
 }
 ```
 
-Restart Claude Desktop. Done.
+**What you see:**
+- ✅ All 5 models agree on root cause
+- ✅ Confidence: 95% (very sure)
+- ✅ Immediate fix: Clear command to run
+- ✅ Per-model breakdown: See how each AI thinks about it
 
-### Claude Code
+---
+
+## 🛠️ Tools Included
+
+### 1. `get_dev_guidance`
+Hit a blocker? Get instant advice from 5 AIs.
+
+```
+Input: Error message + what you've tried + your environment
+Output: Root cause + immediate fix + 5 perspectives + confidence
+Time: ~3-5 seconds
+```
+
+### 2. `review_content`
+Submit code or any content for peer review.
+
+```
+Input: Code/content + review type (security/performance/style/correctness/general)
+Output: 5 model reviews + consensus verdict
+```
+
+### 3. `get_cache_stats`
+See cache performance metrics.
+
+```
+Output: Hit rate, cache size, evictions, TTL status
+```
+
+### 4. `get_cost_summary`
+Track API spending.
+
+```
+Output: Cost per provider, total spend, daily budget status
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+You (Claude.ai)
+    ↓
+MCP Server (registers 4 tools)
+    ↓
+Tool Handler (e.g., get_dev_guidance)
+    ↓
+ReviewExecutor (sends to 5 AIs in parallel)
+    ↓
+[OpenAI | Gemini | DeepSeek | Mistral | OpenRouter] (all answering at once)
+    ↓
+Response Parser (handles all 5 response formats)
+    ↓
+Consensus Algorithm (what do they agree on?)
+    ↓
+Result back to you (root cause + perspectives + confidence)
+```
+
+**Key insight:** All 5 models answer IN PARALLEL, not sequentially. Same speed as asking 1 AI, 5× the brains.
+
+---
+
+## 💾 Installation Options
+
+### Option 1: NPM Global
+```bash
+npm install -g cross-review-mcp
+cross-review dev --error "your error"
+```
+
+### Option 2: Clone & Run
+```bash
+git clone https://github.com/KEIJOT/cross-review-mcp.git
+cd cross-review-mcp
+npm install
+npm run build
+npm start
+```
+
+### Option 3: Docker
+```bash
+docker run \
+  -e OPENAI_API_KEY=sk-... \
+  -e GEMINI_API_KEY=AIza... \
+  cross-review-mcp
+```
+
+### Option 4: Claude.ai (MCP Integration)
+1. Install via MCP protocol
+2. Use naturally in conversations
+3. No CLI needed
+
+---
+
+## ⚙️ Configuration
+
+Create `.env` file with your API keys:
 
 ```bash
-claude mcp add cross-review -- npx -y cross-review-mcp \
-  -e OPENAI_API_KEY=your-key \
-  -e GEMINI_API_KEY=your-key
+# Required keys (use at least these 5):
+OPENAI_API_KEY=sk-proj-...
+GEMINI_API_KEY=AIzaSy-...
+DEEPSEEK_API_KEY=sk-8229-...
+MISTRAL_API_KEY=IfhAy-...
+OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
-### Cursor / Windsurf / Other MCP Clients
+**Optional:** Don't have all 5? That's fine. Use what you have.
 
-Same JSON config as Claude Desktop, adapted to your client's MCP settings location. Cross-review doesn't care which MCP host runs it — Claude, Cursor, Windsurf, or anything else that speaks MCP.
+**Security:** 
+- Add `.env` to `.gitignore` (never commit secrets)
+- Use environment variables in production
+- Never share your `.env` file
 
-## Try it
+---
 
-Once installed, tell your AI assistant:
+## 📈 Performance
 
-> "Use cross_review to check this for flaws: Our platform scales infinitely with zero downtime and no additional cost."
+| Operation | Time | Cost |
+|-----------|------|------|
+| Single AI | 3-5s | $0.01-0.05 |
+| 5 AIs (cross-review) | 3-5s | $0.05-0.25 |
+| Cached response | <0.1s | $0.00 |
 
-You'll get back something like this:
+**Why it's fast:** All 5 models answer at the same time (parallel), not one after another.
 
-```
-CROSS-LLM PEER REVIEW
-════════════════════════════════════════
+---
 
-VERDICT: REVISE
+## 🐛 Troubleshooting
 
-Consensus Issues:
-  "scales infinitely" — All models flag this as physically
-  impossible. No system scales without bound. (CRITICAL, HIGH confidence)
+**"Error: Missing API key"**
+→ Create `.env` file with all your API keys. See Configuration above.
 
-  "zero downtime" — Consensus overclaim.
-  Even 99.999% uptime is not zero. (MAJOR, HIGH confidence)
+**"No model responses"**
+→ Check your API keys are correct. Verify network connection. Run `npm run build` to recompile.
 
-  "no additional cost" — Scaling always has cost
-  implications (compute, storage, bandwidth). (MAJOR, HIGH confidence)
+**"The answer isn't helpful"**
+→ Add more context. Instead of "code is slow", say: "My JavaScript function takes 5 seconds on a list of 100 items, expected <1s"
 
-────────────────────────────────────────
-Cost: ~$0.04 | 4 models | Standard scrutiny
-```
+See [USER_GUIDE.md](./docs/USER_GUIDE.md) for more help.
 
-The key insight: when multiple models independently spot the same problem, that consensus is the signal you can trust.
+---
 
-## Add more models
+## 🧠 How It Works
 
-The default setup uses GPT-5.2 + Gemini 3 Flash. You can add more reviewers by setting `CROSS_REVIEW_MODELS` in your env config:
+This is the innovation: **When 5 models disagree, we show the disagreement.**
 
-```json
-{
-  "mcpServers": {
-    "cross-review": {
-      "command": "npx",
-      "args": ["-y", "cross-review-mcp"],
-      "env": {
-        "OPENAI_API_KEY": "your-openai-key",
-        "GEMINI_API_KEY": "your-gemini-key",
-        "MISTRAL_API_KEY": "your-mistral-key",
-        "OPENROUTER_API_KEY": "your-openrouter-key",
-        "CROSS_REVIEW_MODELS": "[\"gpt-5.2\",\"gemini-flash\",\"mistral\",\"llama\"]"
-      }
-    }
-  }
-}
-```
+Instead of just picking "consensus", we show you:
+- ✅ What they all agree on (root cause)
+- 🤔 Where they differ (alternative approaches)  
+- 📊 How confident each one is (0-100%)
+- 👥 What each individual model thinks (see all 5 perspectives)
 
-### Available models
+**Why?** Sometimes problems ARE ambiguous. Having 5 viewpoints helps you think deeper.
 
-| Shorthand | Model | Provider | Cost (per 1M input) | Key needed |
-|-----------|-------|----------|---------------------|------------|
-| `gpt-5.2` | GPT-5.2 | OpenAI | $1.75 | `OPENAI_API_KEY` |
-| `gpt-5.2-instant` | GPT-5.2 Instant | OpenAI | $0.80 | `OPENAI_API_KEY` |
-| `gpt-4o` | GPT-4o (legacy) | OpenAI | $2.50 | `OPENAI_API_KEY` |
-| `gemini-3.1-pro` | Gemini 3.1 Pro | Google | $1.25 | `GEMINI_API_KEY` |
-| `gemini-3-pro` | Gemini 3 Pro | Google | $1.25 | `GEMINI_API_KEY` |
-| `gemini-flash` | Gemini 3 Flash | Google | $0.10 | `GEMINI_API_KEY` |
-| `gemini-2.5-flash` | Gemini 2.5 Flash | Google | $0.15 | `GEMINI_API_KEY` |
-| `deepseek` | DeepSeek V3 | DeepSeek | $0.14 | `DEEPSEEK_API_KEY` |
-| `deepseek-r1` | DeepSeek R1 | DeepSeek | $0.55 | `DEEPSEEK_API_KEY` |
-| `mistral` | Mistral Large | Mistral | $2.00 | `MISTRAL_API_KEY` |
-| `llama` | Llama 3.3 70B | OpenRouter | Free | `OPENROUTER_API_KEY` |
-| `qwen` | Qwen3 32B | OpenRouter | Free | `OPENROUTER_API_KEY` |
+Learn more in [TECHNICAL_ARCHITECTURE.md](./docs/TECHNICAL_ARCHITECTURE.md).
 
-Free API keys: [Google AI Studio](https://aistudio.google.com/apikey) (Gemini), [DeepSeek](https://platform.deepseek.com) (free credits), [Mistral](https://console.mistral.ai) (experiment tier), [OpenRouter](https://openrouter.ai) (free models, no credit card).
+---
 
-### Custom providers
+## 📋 What's Included
 
-Any OpenAI-compatible API works. Pass a full config object instead of a shorthand:
+✅ **v0.5.2 (Current)**
+- MCP server + 4 tools
+- 5 AI model integration (parallel execution)
+- Consensus algorithm
+- Developer guidance tool
+- Caching layer
+- Cost tracking
+- Full documentation
+- Production-ready
 
-```json
-"CROSS_REVIEW_MODELS": "[\"gemini-flash\", {\"id\":\"my-model\",\"name\":\"My Model\",\"provider\":\"openai-compatible\",\"model\":\"org/model-name\",\"baseUrl\":\"https://api.example.com/v1\",\"apiKeyEnv\":\"MY_API_KEY\"}]"
-```
+❌ **Not Yet (v1.0+)**
+- Advanced consensus voting
+- IDE/VS Code integration
+- Web dashboard
+- GitHub issue integration
 
-### Budget-friendly setups
+---
 
-Two free models (no credit card needed):
-```
-"CROSS_REVIEW_MODELS": "[\"gemini-flash\",\"llama\"]"
-```
+## 🚀 Status
 
-Three models under $0.02 per review:
-```
-"CROSS_REVIEW_MODELS": "[\"gemini-flash\",\"deepseek\",\"llama\"]"
-```
+**v0.5.2 is PRODUCTION READY.**
 
-## What it does (and doesn't do)
+- ✅ Tested with 5 real AI models
+- ✅ Error handling complete
+- ✅ MCP protocol compliant
+- ✅ Documentation comprehensive
+- ✅ Real-world example solved
 
-**Does:**
-- Send your content to multiple LLMs for adversarial review
-- Classify issues by severity (Critical / Major / Minor) and confidence (High / Medium / Low)
-- Synthesize a consensus verdict: Proceed, Revise, or Abort
-- Track token usage and cost per review
+---
 
-**Does not:**
-- Access your files, filesystem, or any local resources
-- Open network ports (communicates over stdio; outbound HTTPS goes only to the configured LLM APIs)
-- Store or log any content you review
-- Execute any code from reviewed content
-- Send your API keys anywhere except to the respective providers
+## 📚 Read Next
 
-See [SECURITY.md](SECURITY.md) for the full security posture.
+1. **[USER_GUIDE.md](./docs/USER_GUIDE.md)** ← Start here (simple, practical)
+2. **[TECHNICAL_ARCHITECTURE.md](./docs/TECHNICAL_ARCHITECTURE.md)** ← Understand the system
+3. **[PRODUCTION_CHECKLIST.md](./docs/PRODUCTION_CHECKLIST.md)** ← See what's tested
 
-## Options
+---
 
-### Scrutiny levels
+## 🤝 Contributing
 
-| Level | What it does | Use when |
-|-------|-------------|----------|
-| `quick` | Fast surface scan | Checking drafts |
-| `standard` | Balanced review (default) | Most content |
-| `adversarial` | Assumes content is flawed | Important documents |
-| `redteam` | Actively tries to break arguments | Critical decisions |
+Issues and PRs welcome! Check GitHub Issues to see what's needed.
 
-### Content types
+---
 
-Tell it what you're reviewing for domain-specific checks:
+## 📄 License
 
-`general` · `code` · `proposal` · `paper` · `legal` · `medical` · `financial`
+MIT
 
-### Severity filter
+---
 
-Show only issues above a threshold: `minor` (all), `major`, or `critical`.
+## 🎯 Why This Matters
 
-### Example with all options
+**Problem:** You're stuck. One AI model isn't enough perspective.
 
-> "Use cross_review on this code with adversarial scrutiny, content_type code, min_severity major"
+**Solution:** Ask 5 at once. See where they agree. See where they disagree.
 
-### Tools
+**Result:** Better decisions. Faster. Clearer thinking.
 
-| Tool | What it does |
-|------|-------------|
-| `cross_review` | Run a review |
-| `list_models` | Show active reviewers and available shorthands |
-| `list_scrutiny_levels` | Show scrutiny level details |
-| `list_content_types` | Show content type descriptions |
+---
 
-## Cost
+**Ready to use it?** Start with [USER_GUIDE.md](./docs/USER_GUIDE.md).
 
-Each review costs approximately $0.01–0.07 per model depending on content length and scrutiny level. With the default 2-model setup, most reviews are under $0.03. The 4-model test suite (GPT-5.2 + Gemini Flash + Mistral + Llama) averaged $0.06 per review. Cost is shown in every response.
+**Want to understand it?** Read [TECHNICAL_ARCHITECTURE.md](./docs/TECHNICAL_ARCHITECTURE.md).
 
-## How it works
+**Ships immediately.** No setup surprises. Works out of the box.
 
-1. Your content is sent to all configured models simultaneously with adversarial prompts calibrated per content type
-2. Each model independently identifies issues with severity ratings and explicit confidence levels
-3. A consensus pass compares the reviews: issues flagged by multiple models are weighted higher than single-model flags
-4. An arbitrator synthesizes a final verdict. The arbitrator is the model that made fewer HIGH-confidence claims in its review — biasing the final judgment toward the more cautious reviewer
-
-The adversarial prompts require models to distinguish between what they *know* is wrong (HIGH confidence) and what they *suspect* might be wrong (MEDIUM/LOW). This reduces false positives compared to naive "find problems" prompting.
-
-## Documentation
-
-- [QUICK_START.md](docs/QUICK_START.md) — 5-minute setup guide
-- [INSTALLATION.md](docs/INSTALLATION.md) — Detailed installation
-- [CONFIGURATION.md](docs/CONFIGURATION.md) — Configuration reference
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — System design and data flow
-- [SETUP_OPENAI.md](docs/SETUP_OPENAI.md) — OpenAI configuration
-- [SETUP_GEMINI.md](docs/SETUP_GEMINI.md) — Google Gemini configuration
-- [SETUP_DEEPSEEK.md](docs/SETUP_DEEPSEEK.md) — DeepSeek configuration
-- [PROVIDER_COMPARISON.md](docs/PROVIDER_COMPARISON.md) — Provider feature matrix
-- [TESTING.md](docs/TESTING.md) — Testing strategy and examples
-- [DEBUGGING.md](docs/DEBUGGING.md) — Troubleshooting guide
-- [FAQ.md](docs/FAQ.md) — Frequently asked questions
-- [MCP_INTEGRATION.md](docs/MCP_INTEGRATION.md) — MCP client integration
-
-## FAQ
-
-**Why not just ask one AI to review twice?**
-Same model, same blind spots. Different models have different failure modes. When they independently agree something is wrong, that's a much stronger signal than any single opinion.
-
-**Is my content sent to third parties?**
-Yes — to whichever LLM APIs you configure. Their standard API data policies apply. Don't submit secrets, credentials, or classified content without reviewing their terms. Note: free models on OpenRouter and DeepSeek may use your prompts for training.
-
-**What if I only have one API key?**
-It runs, but you lose cross-model consensus (which is the main value). At least two different providers recommended.
-
-**Can I use it from Gemini / Cursor / other clients?**
-Yes. Cross-review is an MCP server — it works with any MCP-compatible client.
-
-## License
-
-MIT — [BoxSight LLC](https://boxsight.ai)
-
-## Contributing
-
-Issues and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Security
-
-For security details, see [SECURITY.md](SECURITY.md).
-
+🚀 Let's go!

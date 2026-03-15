@@ -1,137 +1,213 @@
-// src/cache.ts - LRU Cache with TTL for review results (v0.6.0)
+// src/cache.ts - Caching Layer for Review Results (v0.5.2, 2026-03-15)
 
 import * as crypto from 'crypto';
-
-export interface CacheEntry<T> {
-  value: T;
-  hash: string;
-  createdAt: Date;
-  expiresAt: Date;
-  accessCount: number;
-  lastAccessAt: Date;
-}
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface CacheConfig {
   enabled: boolean;
-  ttl: number;
-  maxSize: number;
-  strategy: 'lru';
+  ttl: number;          // Time to live in seconds
+  maxSize: number;      // Max entries
+  strategy: 'lru' | 'fifo';  // Eviction strategy
+  directory?: string;   // Where to store cache
 }
 
-export class CacheManager<T> {
-  private cache: Map<string, CacheEntry<T>> = new Map();
+export interface CacheEntry {
+  key: string;
+  value: any;
+  timestamp: number;
+  hits: number;
+}
+
+export class CacheManager {
+  private cache: Map<string, CacheEntry> = new Map();
   private config: CacheConfig;
-  private accessOrder: string[] = [];
+  private stats = {
+    hits: 0,
+    misses: 0,
+    evictions: 0,
+  };
 
   constructor(config: CacheConfig) {
-    this.config = {
-      enabled: config.enabled ?? true,
-      ttl: config.ttl ?? 86400,
-      maxSize: config.maxSize ?? 1000,
-      strategy: 'lru'
-    };
+    this.config = config;
+    if (config.enabled && config.directory) {
+      this.loadFromDisk();
+    }
   }
 
-  private hashContent(content: string): string {
-    return crypto
+  /**
+   * Generate cache key from content hash
+   */
+  private generateKey(content: string, type: string): string {
+    const hash = crypto
       .createHash('sha256')
-      .update(content)
+      .update(content + type)
       .digest('hex');
+    return hash.substring(0, 16);
   }
 
-  private isExpired(entry: CacheEntry<T>): boolean {
-    return new Date() > entry.expiresAt;
-  }
-
-  public set(content: string, value: T): void {
-    if (!this.config.enabled) return;
-
-    const hash = this.hashContent(content);
-    const now = new Date();
-
-    if (this.cache.has(hash)) {
-      this.cache.delete(hash);
-    }
-
-    if (this.cache.size >= this.config.maxSize) {
-      this.evictLRU();
-    }
-
-    const entry: CacheEntry<T> = {
-      value,
-      hash,
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + this.config.ttl * 1000),
-      accessCount: 0,
-      lastAccessAt: now
-    };
-
-    this.cache.set(hash, entry);
-    this.accessOrder.push(hash);
-  }
-
-  public get(content: string): T | null {
+  /**
+   * Get value from cache
+   */
+  get(content: string, type: string): any | null {
     if (!this.config.enabled) return null;
 
-    const hash = this.hashContent(content);
-    const entry = this.cache.get(hash);
+    const key = this.generateKey(content, type);
+    const entry = this.cache.get(key);
 
-    if (!entry) return null;
-
-    if (this.isExpired(entry)) {
-      this.cache.delete(hash);
-      this.accessOrder = this.accessOrder.filter(h => h !== hash);
+    if (!entry) {
+      this.stats.misses++;
       return null;
     }
 
-    entry.accessCount++;
-    entry.lastAccessAt = new Date();
+    // Check TTL
+    const age = (Date.now() - entry.timestamp) / 1000;
+    if (age > this.config.ttl) {
+      this.cache.delete(key);
+      this.stats.misses++;
+      return null;
+    }
 
-    this.accessOrder = this.accessOrder.filter(h => h !== hash);
-    this.accessOrder.push(hash);
-
+    // Hit!
+    entry.hits++;
+    this.stats.hits++;
     return entry.value;
   }
 
-  public has(content: string): boolean {
-    if (!this.config.enabled) return false;
+  /**
+   * Set value in cache
+   */
+  set(content: string, type: string, value: any): void {
+    if (!this.config.enabled) return;
 
-    const hash = this.hashContent(content);
-    const entry = this.cache.get(hash);
+    const key = this.generateKey(content, type);
 
-    if (!entry) return false;
-    if (this.isExpired(entry)) {
-      this.cache.delete(hash);
-      return false;
+    // Check size limit
+    if (this.cache.size >= this.config.maxSize) {
+      this.evict();
     }
 
-    return true;
+    this.cache.set(key, {
+      key,
+      value,
+      timestamp: Date.now(),
+      hits: 0,
+    });
+
+    if (this.config.directory) {
+      this.saveToDisk();
+    }
   }
 
-  private evictLRU(): void {
-    if (this.accessOrder.length === 0) return;
+  /**
+   * Evict oldest or least-used entry
+   */
+  private evict(): void {
+    if (this.config.strategy === 'lru') {
+      // Evict least recently used
+      let oldest: CacheEntry | null = null;
+      let oldestKey: string | null = null;
 
-    const lruHash = this.accessOrder.shift()!;
-    this.cache.delete(lruHash);
+      for (const [key, entry] of this.cache.entries()) {
+        if (!oldest || entry.timestamp < oldest.timestamp) {
+          oldest = entry;
+          oldestKey = key;
+        }
+      }
+
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+        this.stats.evictions++;
+      }
+    } else {
+      // FIFO: evict first entry
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey) {
+        this.cache.delete(firstKey);
+        this.stats.evictions++;
+      }
+    }
   }
 
-  public clear(): void {
+  /**
+   * Clear entire cache
+   */
+  clear(): void {
     this.cache.clear();
-    this.accessOrder = [];
+    this.stats = { hits: 0, misses: 0, evictions: 0 };
+    if (this.config.directory) {
+      try {
+        fs.unlinkSync(this.getCacheFilePath());
+      } catch (e) {
+        // File doesn't exist
+      }
+    }
   }
 
-  public getStats() {
+  /**
+   * Get cache statistics
+   */
+  getStats() {
+    const hitRate = this.stats.hits + this.stats.misses > 0
+      ? this.stats.hits / (this.stats.hits + this.stats.misses)
+      : 0;
+
     return {
-      size: this.cache.size,
+      hits: this.stats.hits,
+      misses: this.stats.misses,
+      hitRate: Number(hitRate.toFixed(2)),
+      evictions: this.stats.evictions,
+      totalSize: this.cache.size,
       maxSize: this.config.maxSize,
-      ttl: this.config.ttl,
-      entries: Array.from(this.cache.values()).map(e => ({
-        hash: e.hash.substring(0, 8),
-        createdAt: e.createdAt.toISOString(),
-        expiresAt: e.expiresAt.toISOString(),
-        accessCount: e.accessCount,
-        isExpired: this.isExpired(e)
-      }))
+      entries: this.cache.size,
     };
+  }
+
+  /**
+   * Persist cache to disk
+   */
+  private saveToDisk(): void {
+    if (!this.config.directory) return;
+
+    try {
+      const data = Array.from(this.cache.values());
+      fs.writeFileSync(
+        this.getCacheFilePath(),
+        JSON.stringify(data, null, 2),
+        'utf-8'
+      );
+    } catch (error: any) {
+      console.error('[Cache] Failed to save to disk:', error.message);
+    }
+  }
+
+  /**
+   * Load cache from disk
+   */
+  private loadFromDisk(): void {
+    if (!this.config.directory) return;
+
+    try {
+      const filepath = this.getCacheFilePath();
+      if (fs.existsSync(filepath)) {
+        const data = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
+        data.forEach((entry: CacheEntry) => {
+          this.cache.set(entry.key, entry);
+        });
+        console.error(`[Cache] Loaded ${data.length} entries from disk`);
+      }
+    } catch (error: any) {
+      console.error('[Cache] Failed to load from disk:', error.message);
+    }
+  }
+
+  /**
+   * Get cache file path
+   */
+  private getCacheFilePath(): string {
+    return path.join(
+      this.config.directory || process.cwd(),
+      '.llmapi_cache.json'
+    );
   }
 }

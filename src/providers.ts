@@ -1,4 +1,4 @@
-// src/providers.ts - LLM Provider implementations (v0.5)
+// src/providers.ts - LLM Provider implementations (v0.5.2)
 import { ReviewerConfig } from './config.js';
 import { LLMResponse } from './types.js';
 
@@ -37,7 +37,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
             { role: 'user', content },
           ],
           temperature: 0.7,
-          max_tokens: 2000,
+          max_completion_tokens: 2000,
         }),
       });
 
@@ -101,7 +101,7 @@ export class GeminiProvider implements LLMProvider {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            system_instruction: system,
+            ...(system ? { system_instruction: system } : {}),
             contents: [{ parts: [{ text: content }] }],
             generationConfig: {
               temperature: 0.7,

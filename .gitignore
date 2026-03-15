@@ -1,11 +1,49 @@
+# Dependencies
 node_modules/
-dist/
-.env
-*.log
-.DS_Store
-cross_review.py
-*.pyc
-__pycache__/
+*.npm
+package-lock.json
+yarn.lock
 
-# Deploy script (local-only, never push to GitHub)
-deploy.sh
+# Build artifacts
+dist/
+build/
+*.js.map
+*.d.ts.map
+
+# Environment & Configuration
+.env
+.env.local
+.env.*.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Runtime data
+.llmapi_usage.json
+.cache/
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Sensitive data
+api-keys.txt
+secrets/
+credentials.json
