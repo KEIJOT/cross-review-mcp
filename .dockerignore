@@ -1,0 +1,10 @@
+node_modules
+src
+test
+.env
+.llmapi_usage.json
+.llmapi_costs.json
+.llmapi_cache.json
+.planning
+.git
+*.md

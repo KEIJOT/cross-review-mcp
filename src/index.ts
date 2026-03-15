@@ -275,6 +275,7 @@ async function startMCPServer() {
   }
 }
 
-if (import.meta.url.endsWith(process.argv[1]) || process.argv[1].endsWith('dist/index.js')) {
+const entryArg = process.argv[1] || '';
+if (import.meta.url.endsWith(entryArg) || entryArg.endsWith('dist/index.js')) {
   startMCPServer();
 }
