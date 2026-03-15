@@ -5,7 +5,8 @@ import { loadConfig } from "../dist/config.js";
 import { TokenTracker } from "../dist/tracking.js";
 import { CacheManager } from "../dist/cache.js";
 import { CostManager } from "../dist/cost-manager.js";
-import { buildConsensus, scoreModelResponse, detectParadigmShift } from "../dist/consensus-algorithm.js";
+import { buildConsensus, scoreModelResponse, detectParadigmShift, jaccardSimilarity } from "../dist/consensus-algorithm.js";
+import { buildModelBenchmark } from "../dist/benchmark.js";
 import { eventBus } from "../dist/events.js";
 import { configureLogger } from "../dist/logger.js";
 import * as fs from "fs";
@@ -221,6 +222,47 @@ const noShiftResult = detectParadigmShift([
 ]);
 assert(noShiftResult.hasShift === false, "No shift when diagnoses match");
 
+// ── Semantic Similarity (Jaccard) ──
+
+console.log("\n── Semantic Similarity ──\n");
+
+assert(jaccardSimilarity("Port in use", "port occupied") > 0, "Overlapping words have positive similarity");
+assert(jaccardSimilarity("Port in use", "Port in use") === 1.0, "Identical strings have similarity 1.0");
+assert(jaccardSimilarity("completely different", "no overlap here") === 0, "No overlap gives similarity 0");
+assert(jaccardSimilarity("", "") === 1.0, "Empty strings are identical");
+
+// Test semantic consensus clustering
+const semanticResponses = [
+  { model: "openai", diagnosis: "Port is already in use", suggestion: "Kill the process", confidence: 0.9, alternatives: [] },
+  { model: "gemini", diagnosis: "Port already in use by another process", suggestion: "Kill the process on that port", confidence: 0.85, alternatives: [] },
+  { model: "deepseek", diagnosis: "The port is in use", suggestion: "Stop the existing process", confidence: 0.8, alternatives: [] },
+  { model: "mistral", diagnosis: "Missing dependency error", suggestion: "Install the package", confidence: 0.7, alternatives: [] },
+];
+const semanticResult = buildConsensus(semanticResponses);
+assert(semanticResult.confidence >= 0.6, "Semantic clustering gives higher confidence than exact matching would");
+assert(semanticResult.divergentPerspectives.length <= 2, "Only truly different perspectives are divergent");
+assert(semanticResult.perModelAnalysis.filter(m => m.agreesWithConsensus).length >= 3, "3+ models agree via semantic similarity");
+
+// ── Config-based CostManager ──
+
+console.log("\n── Config-based CostManager ──\n");
+
+const configCostMgr = new CostManager({
+  trackingEnabled: true,
+  dailyThreshold: 10,
+  configCosts: {
+    "custom-model": { input_per_1m: 5, output_per_1m: 15 },
+  },
+});
+configCostMgr.reset();
+configCostMgr.trackUsage("custom-model", 1_000_000, 0);
+const configStats = configCostMgr.getStats();
+assert(configStats.dailySpend === "$5.00", "Config costs calculate correctly for input ($5/1M)");
+configCostMgr.trackUsage("custom-model", 0, 1_000_000);
+const configStats2 = configCostMgr.getStats();
+assert(configStats2.dailySpend === "$20.00", "Config costs calculate correctly for input+output ($5+$15)");
+configCostMgr.reset();
+
 // ── EventBus ──
 
 console.log("\n\u2500\u2500 EventBus \u2500\u2500\n");
@@ -276,6 +318,42 @@ assert(recent[0].models.size > 0, "Ring buffer has model data");
 
 assert(eventBus.getUptimeMs() > 0, "Uptime is positive");
 assert(eventBus.getTotalRequests() > 0, "Total requests tracked");
+
+// ── Model Benchmarking ──
+
+console.log("\n── Model Benchmarking ──\n");
+
+// Build benchmark from the events emitted above
+const benchCostMgr = new CostManager({ trackingEnabled: true, dailyThreshold: 10 });
+benchCostMgr.reset();
+benchCostMgr.trackUsage("openai", 100, 50);
+
+const benchmark = buildModelBenchmark(benchCostMgr);
+assert(benchmark.totalRequests > 0, "Benchmark has request data from ring buffer");
+assert(Array.isArray(benchmark.models), "Benchmark has models array");
+assert(Array.isArray(benchmark.ranking), "Benchmark has ranking array");
+assert(typeof benchmark.uptimeSeconds === "number", "Benchmark has uptime");
+assert(benchmark.generatedAt !== undefined, "Benchmark has timestamp");
+
+// We emitted one model:complete for "openai" earlier, so it should appear
+const openaiModel = benchmark.models.find(m => m.modelId === "openai");
+if (openaiModel) {
+  assert(openaiModel.requests > 0, "Benchmark tracks openai requests");
+  assert(openaiModel.avgLatencyMs >= 0, "Benchmark has avg latency");
+  assert(openaiModel.p95LatencyMs >= 0, "Benchmark has p95 latency");
+  assert(typeof openaiModel.errorRate === "number", "Benchmark has error rate");
+  assert(typeof openaiModel.reliabilityScore === "number", "Benchmark has reliability score");
+  assert(openaiModel.reliabilityScore >= 0 && openaiModel.reliabilityScore <= 100, "Reliability score in 0-100 range");
+  assert(openaiModel.totalCost.startsWith("$"), "Benchmark has cost string");
+  assert(openaiModel.costPerRequest.startsWith("$"), "Benchmark has cost per request");
+} else {
+  assert(false, "openai model should appear in benchmark");
+}
+
+// Ranking should have the models sorted
+assert(benchmark.ranking.length === benchmark.models.length, "Ranking includes all models");
+
+benchCostMgr.reset();
 
 // Clean up event listeners
 eventBus.removeAllListeners();

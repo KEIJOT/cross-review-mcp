@@ -59,7 +59,7 @@ Imagine building with LEGO:
 
 **Does:**
 - Supports three startup modes: `stdio` (default), `http` (dashboard + remote), `both`
-- Registers 4 tools (get_dev_guidance, review_content, cache_stats, cost_summary)
+- Registers 5 tools (get_dev_guidance, review_content, cache_stats, cost_summary, benchmark_models)
 - Lazy-loads the ReviewExecutor only when needed (saves memory)
 - Parses `--mode`, `--port`, `--host` CLI flags
 

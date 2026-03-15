@@ -1,220 +1,49 @@
-# cross-review-mcp v0.5.2
+# cross-review-mcp v0.6.0
 
 **Get expert advice from 5 AI models at the same time.**
 
 Instead of asking ChatGPT OR Gemini, ask **both + 3 others** in parallel. See what they agree on. See where they differ.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  You:  "Why does my app crash on startup?"                 │
-│  System: [Asking OpenAI, Gemini, DeepSeek, Mistral, ...]   │
-│  Result: 5 expert perspectives + consensus verdict          │
-└─────────────────────────────────────────────────────────────┘
+You:  "Why does my app crash on startup?"
+ -> [OpenAI, Gemini, DeepSeek, Mistral, OpenRouter] (all answering at once)
+ -> 5 expert perspectives + consensus verdict in ~3 seconds
 ```
 
----
-
-## 📖 Documentation
-
-Read these first:
-
-- **[User Guide](./docs/USER_GUIDE.md)** — How to install and use (simple!)
-- **[Technical Architecture](./docs/TECHNICAL_ARCHITECTURE.md)** — How it works inside
-- **[Production Checklist](./docs/PRODUCTION_CHECKLIST.md)** — What's tested, what works
-
----
-
-## 🚀 Quick Start (3 Minutes)
+## Quick Start
 
 ### 1. Install
+
 ```bash
 npm install -g cross-review-mcp
 ```
 
-### 2. Get API Keys
-Visit these sites and get free/paid API keys:
-- [OpenAI](https://openai.com) 
-- [Gemini](https://makersuite.google.com)
-- [DeepSeek](https://deepseek.com)
-- [Mistral](https://mistral.ai)
-- [OpenRouter](https://openrouter.io)
+### 2. Create `.env`
 
-### 3. Create `.env`
 ```bash
-# In your project folder, create .env:
-OPENAI_API_KEY=sk-proj-your-key
-GEMINI_API_KEY=AIzaSy-your-key
-DEEPSEEK_API_KEY=sk-8229-your-key
-MISTRAL_API_KEY=IfhAy-your-key
-OPENROUTER_API_KEY=sk-or-v1-your-key
+OPENAI_API_KEY=sk-proj-...
+GEMINI_API_KEY=AIzaSy-...
+DEEPSEEK_API_KEY=sk-...          # optional
+MISTRAL_API_KEY=...              # optional
+OPENROUTER_API_KEY=sk-or-v1-...  # optional
 ```
 
-### 4. Use It
-```bash
-# From the CLI:
-cross-review dev --error "PORT IS IN USE at 6277" \
-                 --tech "MCP Inspector" \
-                 --env "macOS" \
-                 --tried "Killed processes, waited"
+You need at least 2 API keys. More models = better consensus.
 
-# Or in Claude.ai: Connect via MCP, ask naturally
-```
-
----
-
-## 📊 Real Example: The PORT IS IN USE Problem
-
-**Problem:** You get `PORT IS IN USE at 6277` and you're stuck.
-
-**Old Way:**
-1. Ask ChatGPT → "kill the process" (not specific)
-2. Ask Gemini → "use lsof" (better!)
-3. Context-switch 3 times
-4. Time wasted: 5 minutes
-
-**New Way (cross-review-mcp):**
-1. Ask once
-2. Get 5 perspectives instantly
-3. Time: 10 seconds
-
-### What You Get:
+### 3. Add to Claude Desktop
 
 ```json
 {
-  "root_cause": "Another process, potentially MCP Inspector itself 
-                 from a previous session, is still bound to port 6277.",
-  
-  "immediate_fix": "Use `lsof -i :6277` to identify the process 
-                    using the port and then kill it using `kill -9 <PID>`.",
-  
-  "consensus_confidence": 0.95,
-  
-  "per_model_analysis": [
-    {
-      "model": "Gemini",
-      "confidence": 0.95,
-      "perspective": "Another process is still bound to port 6277.",
-      "suggestion": "Use `lsof -i :6277` then `kill -9 <PID>`."
-    },
-    {
-      "model": "OpenAI",
-      "confidence": 0.86,
-      "perspective": "A running process is still bound to TCP port 6277 on macOS.",
-      "suggestion": "Find and kill the exact process: `lsof -nP -iTCP:6277 -sTCP:LISTEN` 
-                     then `kill -9 <PID>`."
-    },
-    {
-      "model": "DeepSeek",
-      "confidence": 0.78,
-      "perspective": "System resource conflict — port still in use.",
-      "suggestion": "Check what's running, kill it, restart."
-    },
-    {
-      "model": "Mistral",
-      "confidence": 0.82,
-      "perspective": "Leftover process from earlier session still using the port.",
-      "suggestion": "Kill the old process, then restart the Inspector."
-    },
-    {
-      "model": "OpenRouter",
-      "confidence": 0.81,
-      "perspective": "Port still in use by another process.",
-      "suggestion": "Free the port using `lsof` and `kill`, then try again."
+  "mcpServers": {
+    "cross-review": {
+      "command": "npx",
+      "args": ["-y", "cross-review-mcp"]
     }
-  ],
-  
-  "timestamp": "2026-03-15T03:30:39.087Z"
+  }
 }
 ```
 
-**What you see:**
-- ✅ All 5 models agree on root cause
-- ✅ Confidence: 95% (very sure)
-- ✅ Immediate fix: Clear command to run
-- ✅ Per-model breakdown: See how each AI thinks about it
-
----
-
-## 🛠️ Tools Included
-
-### 1. `get_dev_guidance`
-Hit a blocker? Get instant advice from 5 AIs.
-
-```
-Input: Error message + what you've tried + your environment
-Output: Root cause + immediate fix + 5 perspectives + confidence
-Time: ~3-5 seconds
-```
-
-### 2. `review_content`
-Submit code or any content for peer review.
-
-```
-Input: Code/content + review type (security/performance/style/correctness/general)
-Output: 5 model reviews + consensus verdict
-```
-
-### 3. `get_cache_stats`
-See cache performance metrics.
-
-```
-Output: Hit rate, cache size, evictions, TTL status
-```
-
-### 4. `get_cost_summary`
-Track API spending.
-
-```
-Output: Cost per provider, total spend, daily budget status
-```
-
----
-
-## 🏗️ Architecture
-
-```
-You (Claude.ai / Claude Desktop / CLI)
-    ↓
-MCP Server (stdio or HTTP transport)
-    ↓
-Tool Handler (e.g., get_dev_guidance)
-    ↓
-ReviewExecutor (sends to 5 AIs in parallel)
-    ↓
-[OpenAI | Gemini | DeepSeek | Mistral | OpenRouter] (all answering at once)
-    ↓
-Response Parser (handles all 5 response formats)
-    ↓
-Consensus Algorithm (what do they agree on?)
-    ↓
-Result back to you (root cause + perspectives + confidence)
-    ↓
-Live Dashboard (real-time SSE updates to browser)
-```
-
-**Key insight:** All 5 models answer IN PARALLEL, not sequentially. Same speed as asking 1 AI, 5x the brains.
-
----
-
-## 💾 Installation Options
-
-### Option 1: NPM Global
-```bash
-npm install -g cross-review-mcp
-cross-review dev --error "your error"
-```
-
-### Option 2: Clone & Run
-```bash
-git clone https://github.com/KEIJOT/cross-review-mcp.git
-cd cross-review-mcp
-npm install
-npm run build
-npm start
-```
-
-### Option 3: Claude Code (stdio, local)
-Add to your Claude Desktop config (`claude_desktop_config.json`):
+Or run from source:
 ```json
 {
   "mcpServers": {
@@ -226,210 +55,284 @@ Add to your Claude Desktop config (`claude_desktop_config.json`):
 }
 ```
 
-### Option 4: HTTP Server with Dashboard
-Run the server with a live web dashboard:
-```bash
-npm run serve          # HTTP mode on port 6280
-# or
-npm run serve:both     # stdio + HTTP simultaneously
-```
-Open `http://localhost:6280` to see the dashboard.
+---
 
-### Option 5: Remote Server (Network Access)
-Run on a Linux box (e.g., 192.168.1.120) and connect from any machine:
-```bash
-# On the server:
-npm run serve
+## Tools
+
+### `review_content`
+Submit code or text for cross-LLM peer review.
+
 ```
-Then on any Claude Desktop client, use the `url` field:
+Input:  content + reviewType (security|performance|correctness|style|general)
+Output: Per-model reviews + consensus verdict
+```
+
+**New in v0.6.0:** Optional `models` parameter for cost control:
+- `"fast"` — cheapest 2 models
+- `"balanced"` — 3 models
+- `"thorough"` — all models (default)
+- `["openai", "gemini"]` — specific models by ID
+
+### `get_dev_guidance`
+Hit a blocker? Get instant advice from multiple AIs with consensus.
+
+```
+Input:  error + technology + environment + attempts
+Output: Root cause + immediate fix + per-model perspectives + confidence
+```
+
+### `get_cache_stats`
+Cache hit rate, entries, evictions.
+
+### `get_cost_summary`
+Per-provider spend, daily/monthly totals, budget alerts.
+
+### `benchmark_models`
+Per-model performance leaderboard from historical data:
+- Avg & P95 latency, error rate, tokens/request
+- Cost per request, total spend
+- Reliability score (0-100) combining success rate, latency, and output quality
+- Models ranked by reliability
+
+---
+
+## What's New in v0.6.0
+
+### Semantic Consensus
+The consensus algorithm now uses Jaccard similarity to cluster diagnoses that mean the same thing but are worded differently. "Port in use", "port occupied", and "port already taken" all cluster together instead of being counted as separate diagnoses.
+
+### Per-Request Model Selection
+Control cost per request. A quick question doesn't need 5 models:
+```json
+{ "content": "simple question", "reviewType": "general", "models": "fast" }
+```
+
+### HTTP Authentication
+Secure the HTTP endpoint with a bearer token:
+```bash
+node dist/index.js --mode http --auth-token my-secret
+# or
+AUTH_TOKEN=my-secret npm run serve
+```
+All routes require `Authorization: Bearer my-secret`. Dashboard accessible at `/?token=my-secret`. Health endpoint is always open.
+
+### Health Check
+```bash
+curl http://localhost:6280/health
+```
 ```json
 {
-  "mcpServers": {
-    "cross-review": {
-      "url": "http://192.168.1.120:6280/mcp"
+  "status": "ok",
+  "uptime": 3600,
+  "providers": { "openai": "up", "gemini": "up", "deepseek": "down" },
+  "version": "0.6.0"
+}
+```
+Use for Docker `HEALTHCHECK`, load balancers, monitoring.
+
+### Config-Based Provider Costs
+Provider pricing is now in `llmapi.config.json`, not hardcoded. Adding a new provider is zero-code:
+```json
+{
+  "reviewers": [
+    {
+      "id": "anthropic",
+      "provider": "openai-compatible",
+      "model": "claude-sonnet-4-6",
+      "baseUrl": "https://api.anthropic.com/v1"
+    }
+  ],
+  "costs": {
+    "models": {
+      "anthropic": { "input_per_1m": 3, "output_per_1m": 15 }
     }
   }
 }
 ```
-No SSH tunnel needed. Uses MCP's StreamableHTTP transport.
 
 ---
 
-## ⚙️ Configuration
-
-Create `.env` file with your API keys:
-
-```bash
-# Required keys (use at least these 5):
-OPENAI_API_KEY=sk-proj-...
-GEMINI_API_KEY=AIzaSy-...
-DEEPSEEK_API_KEY=sk-8229-...
-MISTRAL_API_KEY=IfhAy-...
-OPENROUTER_API_KEY=sk-or-v1-...
-```
-
-**Optional:** Don't have all 5? That's fine. Use what you have.
-
-**Security:**
-- Add `.env` to `.gitignore` (never commit secrets)
-- Use environment variables in production
-- Never share your `.env` file
-
----
-
-## 🖥️ Server Modes
-
-The server supports three startup modes via the `--mode` flag:
+## Server Modes
 
 | Mode | Command | Description |
 |------|---------|-------------|
-| `stdio` | `npm start` | Default. Local Claude Code via stdin/stdout. No HTTP server. |
-| `http` | `npm run serve` | HTTP server only. Dashboard + MCP endpoint for remote clients. |
-| `both` | `npm run serve:both` | Both transports simultaneously. Local Claude Code + remote access. |
+| `stdio` | `npm start` | Default. Local Claude Desktop via stdin/stdout. |
+| `http` | `npm run serve` | HTTP server with dashboard + MCP endpoint. |
+| `both` | `npm run serve:both` | Both transports simultaneously. |
 
 ### CLI Flags
 
 ```bash
-node dist/index.js --mode http --port 6280 --host 0.0.0.0
+node dist/index.js --mode http --port 6280 --host 0.0.0.0 --auth-token SECRET
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--mode` | `stdio` | Transport mode: `stdio`, `http`, or `both` |
+| `--mode` | `stdio` | `stdio`, `http`, or `both` |
 | `--port` | `6280` | HTTP server port |
-| `--host` | `0.0.0.0` | HTTP server bind address |
+| `--host` | `0.0.0.0` | Bind address |
+| `--auth-token` | none | Bearer token for HTTP auth (or `AUTH_TOKEN` env var) |
 
 ---
 
-## 📊 Live Dashboard
+## Live Dashboard
 
-When running in `http` or `both` mode, a live web dashboard is available at `http://localhost:6280`.
+Run in `http` or `both` mode, then open `http://localhost:6280`.
 
-**Dashboard features:**
-- Real-time request feed with per-model responses appearing as they complete
-- Per-model stats table (requests, avg time, tokens, error rate)
-- Cost cards (today / month)
-- Cache stats (hit rate, entries)
-- Active request count and server uptime
+- Real-time request feed (SSE, no polling)
+- Per-model stats (requests, avg time, tokens, error rate)
+- Cost tracking (today / month)
+- Cache performance
 
-The dashboard uses Server-Sent Events (SSE) for live updates - no page refresh needed.
+### HTTP Endpoints
 
-**Endpoints:**
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/` | GET | Live web dashboard |
-| `/api/stats` | GET | JSON stats (costs, cache, recent requests) |
-| `/api/events` | GET | SSE stream for real-time updates |
-| `/mcp` | POST/GET/DELETE | MCP StreamableHTTP transport |
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/` | GET | Yes* | Live dashboard |
+| `/health` | GET | No | Health check (always open) |
+| `/api/stats` | GET | Yes | JSON stats |
+| `/api/events` | GET | Yes | SSE stream |
+| `/mcp` | POST/GET/DELETE | Yes | MCP StreamableHTTP transport |
+
+*Dashboard also accepts `/?token=SECRET` query param.
 
 ---
 
-## 📈 Performance
+## Remote Deployment
+
+### Option A: SSH (stdio over SSH)
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "command": "ssh",
+      "args": ["user@server", "cd /path/to/cross-review-mcp && node dist/index.js"]
+    }
+  }
+}
+```
+
+### Option B: HTTP (StreamableHTTP transport)
+```bash
+# On the server:
+AUTH_TOKEN=secret node dist/index.js --mode http --port 6280
+```
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "url": "http://your-server:6280/mcp",
+      "headers": { "Authorization": "Bearer secret" }
+    }
+  }
+}
+```
+
+### Option C: Docker
+```bash
+docker build -t cross-review-mcp .
+docker run -p 6280:6280 \
+  -e OPENAI_API_KEY=... \
+  -e GEMINI_API_KEY=... \
+  -e AUTH_TOKEN=secret \
+  cross-review-mcp --mode http
+```
+
+---
+
+## Architecture
+
+```
+Client (Claude Desktop / CLI / HTTP)
+  -> MCP Server (stdio or StreamableHTTP)
+    -> ReviewExecutor (model selection + parallel dispatch)
+      -> [OpenAI | Gemini | DeepSeek | Mistral | OpenRouter]
+    -> Consensus Algorithm (Jaccard similarity clustering)
+    -> Cache (LRU, disk persistence)
+    -> Cost Manager (per-model tracking, daily alerts)
+    -> EventBus -> Dashboard (SSE)
+```
+
+All models execute in parallel. Same latency as asking 1 model, 5x the perspectives.
+
+---
+
+## Configuration
+
+### `llmapi.config.json`
+
+Reviewers, costs, and execution strategy are configured here:
+
+```json
+{
+  "reviewers": [
+    { "id": "openai", "provider": "openai", "model": "gpt-5.2" },
+    { "id": "gemini", "provider": "gemini", "model": "gemini-2.0-flash" },
+    { "id": "deepseek", "provider": "openai-compatible", "model": "deepseek-chat", "baseUrl": "https://api.deepseek.com/v1" }
+  ],
+  "costs": {
+    "models": {
+      "openai": { "input_per_1m": 3, "output_per_1m": 15 },
+      "gemini": { "input_per_1m": 0.075, "output_per_1m": 0.3 },
+      "deepseek": { "input_per_1m": 1.4, "output_per_1m": 4.2 }
+    }
+  },
+  "execution": { "strategy": "wait_all" }
+}
+```
+
+API keys are loaded from environment variables: `{REVIEWER_ID}_API_KEY` (e.g., `OPENAI_API_KEY`).
+
+### Provider Types
+
+| Type | SDK | Use For |
+|------|-----|---------|
+| `openai` | OpenAI SDK | OpenAI models |
+| `gemini` | Google Generative AI | Gemini models |
+| `openai-compatible` | OpenAI SDK + custom baseUrl | DeepSeek, Mistral, OpenRouter, Groq, Together, etc. |
+
+---
+
+## Testing
+
+```bash
+npm run test          # 102 smoke tests (no API keys needed)
+npm run test:all      # 136 offline tests (smoke + integration)
+npm run test:e2e      # 31 E2E tests (requires API keys in .env)
+```
+
+---
+
+## Performance
 
 | Operation | Time | Cost |
 |-----------|------|------|
-| Single AI | 3-5s | $0.01-0.05 |
-| 5 AIs (cross-review) | 3-5s | $0.05-0.25 |
-| Cached response | <0.1s | $0.00 |
-
-**Why it's fast:** All 5 models answer at the same time (parallel), not one after another.
-
----
-
-## 🐛 Troubleshooting
-
-**"Error: Missing API key"**
-→ Create `.env` file with all your API keys. See Configuration above.
-
-**"No model responses"**
-→ Check your API keys are correct. Verify network connection. Run `npm run build` to recompile.
-
-**"The answer isn't helpful"**
-→ Add more context. Instead of "code is slow", say: "My JavaScript function takes 5 seconds on a list of 100 items, expected <1s"
-
-See [USER_GUIDE.md](./docs/USER_GUIDE.md) for more help.
+| 5 models (thorough) | 3-5s | $0.01-0.05 |
+| 3 models (balanced) | 3-5s | $0.005-0.02 |
+| 2 models (fast) | 2-3s | $0.002-0.01 |
+| Cached response | <1ms | $0.00 |
 
 ---
 
-## 🧠 How It Works
+## Contributing
 
-This is the innovation: **When 5 models disagree, we show the disagreement.**
+Issues and PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-Instead of just picking "consensus", we show you:
-- ✅ What they all agree on (root cause)
-- 🤔 Where they differ (alternative approaches)  
-- 📊 How confident each one is (0-100%)
-- 👥 What each individual model thinks (see all 5 perspectives)
-
-**Why?** Sometimes problems ARE ambiguous. Having 5 viewpoints helps you think deeper.
-
-Learn more in [TECHNICAL_ARCHITECTURE.md](./docs/TECHNICAL_ARCHITECTURE.md).
+```bash
+git clone https://github.com/KEIJOT/cross-review-mcp.git
+cd cross-review-mcp
+npm install
+npm run build
+npm run test:all
+```
 
 ---
 
-## 📋 What's Included
-
-**v0.5.2 (Current)**
-- MCP server + 4 tools
-- 5 AI model integration (parallel execution)
-- Consensus algorithm
-- Developer guidance tool
-- Caching layer
-- Cost tracking
-- Live web dashboard with real-time SSE updates
-- HTTP transport for remote/network access (StreamableHTTP)
-- Dual transport mode (stdio + HTTP simultaneously)
-- Full documentation
-- Production-ready
-
----
-
-## 🚀 Status
-
-**v0.5.2 is PRODUCTION READY.**
-
-- ✅ Tested with 5 real AI models
-- ✅ Error handling complete
-- ✅ MCP protocol compliant
-- ✅ Documentation comprehensive
-- ✅ Real-world example solved
-
----
-
-## 📚 Read Next
-
-1. **[USER_GUIDE.md](./docs/USER_GUIDE.md)** ← Start here (simple, practical)
-2. **[TECHNICAL_ARCHITECTURE.md](./docs/TECHNICAL_ARCHITECTURE.md)** ← Understand the system
-3. **[PRODUCTION_CHECKLIST.md](./docs/PRODUCTION_CHECKLIST.md)** ← See what's tested
-
----
-
-## 🤝 Contributing
-
-Issues and PRs welcome! Check GitHub Issues to see what's needed.
-
----
-
-## 📄 License
+## License
 
 MIT
 
 ---
 
-## 🎯 Why This Matters
-
-**Problem:** You're stuck. One AI model isn't enough perspective.
-
-**Solution:** Ask 5 at once. See where they agree. See where they disagree.
-
-**Result:** Better decisions. Faster. Clearer thinking.
-
----
-
-**Ready to use it?** Start with [USER_GUIDE.md](./docs/USER_GUIDE.md).
-
-**Want to understand it?** Read [TECHNICAL_ARCHITECTURE.md](./docs/TECHNICAL_ARCHITECTURE.md).
-
-**Ships immediately.** No setup surprises. Works out of the box.
-
-🚀 Let's go!
+**GitHub:** https://github.com/KEIJOT/cross-review-mcp
+**npm:** https://www.npmjs.com/package/cross-review-mcp

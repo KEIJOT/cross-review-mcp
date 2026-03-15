@@ -29,6 +29,7 @@ import { CacheManager } from './cache.js';
 import { CostManager } from './cost-manager.js';
 import { analyzeDevelopmentProblem } from './dev-guidance.js';
 import { configureLogger } from './logger.js';
+import { buildModelBenchmark } from './benchmark.js';
 
 // Re-export library components for NPM usage
 export { ReviewExecutor } from './executor.js';
@@ -86,6 +87,21 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
                 enum: ['security', 'performance', 'correctness', 'style', 'general'],
                 description: 'Type of review to perform',
               },
+              models: {
+                oneOf: [
+                  {
+                    type: 'string',
+                    enum: ['fast', 'balanced', 'thorough'],
+                    description: 'Preset: "fast" (cheapest 2), "balanced" (3 models), "thorough" (all)',
+                  },
+                  {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Specific model IDs to use (e.g., ["openai", "gemini"])',
+                  },
+                ],
+                description: 'Which models to use. Preset name or array of model IDs. Default: all models.',
+              },
             },
             required: ['content', 'reviewType'],
           },
@@ -105,6 +121,21 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
                 description: 'What has already been tried to solve this',
               },
               codeSnippet: { type: 'string', description: 'Optional: relevant code snippet' },
+              models: {
+                oneOf: [
+                  {
+                    type: 'string',
+                    enum: ['fast', 'balanced', 'thorough'],
+                    description: 'Preset: "fast" (cheapest 2), "balanced" (3 models), "thorough" (all)',
+                  },
+                  {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Specific model IDs to use (e.g., ["openai", "gemini"])',
+                  },
+                ],
+                description: 'Which models to use. Preset name or array of model IDs. Default: all models.',
+              },
             },
             required: ['error', 'technology', 'environment', 'attempts'],
           },
@@ -117,6 +148,11 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
         {
           name: 'get_cost_summary',
           description: 'Get API cost tracking summary and budget status',
+          inputSchema: { type: 'object' as const, properties: {} },
+        },
+        {
+          name: 'benchmark_models',
+          description: 'Get per-model performance benchmarks: avg latency, error rate, tokens/request, cost efficiency, and reliability ranking',
           inputSchema: { type: 'object' as const, properties: {} },
         },
       ],
@@ -133,6 +169,7 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
           const result = await executor.execute({
             content: args?.content as string,
             type: args?.reviewType as any,
+            models: args?.models as string | string[] | undefined,
           });
           return {
             content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
@@ -156,7 +193,8 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
               },
               codeSnippet: args?.codeSnippet as string | undefined,
             },
-            executor
+            executor,
+            args?.models as string | string[] | undefined,
           );
           return {
             content: [{ type: 'text', text: JSON.stringify(guidance, null, 2) }],
@@ -191,6 +229,18 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
           };
         }
 
+      case 'benchmark_models':
+        try {
+          const benchmark = buildModelBenchmark(costManager);
+          return {
+            content: [{ type: 'text', text: JSON.stringify(benchmark, null, 2) }],
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: 'text', text: `Error: ${error.message}` }],
+          };
+        }
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -198,11 +248,12 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
 }
 
 // Parse CLI args
-function parseArgs(): { mode: 'stdio' | 'http' | 'both'; port: number; host: string } {
+function parseArgs(): { mode: 'stdio' | 'http' | 'both'; port: number; host: string; authToken?: string } {
   const args = process.argv.slice(2);
   let mode: 'stdio' | 'http' | 'both' = 'stdio';
   let port = 6280;
   let host = '0.0.0.0';
+  let authToken: string | undefined = process.env.AUTH_TOKEN;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--mode' && args[i + 1]) {
@@ -217,14 +268,17 @@ function parseArgs(): { mode: 'stdio' | 'http' | 'both'; port: number; host: str
     } else if (args[i] === '--host' && args[i + 1]) {
       host = args[i + 1];
       i++;
+    } else if (args[i] === '--auth-token' && args[i + 1]) {
+      authToken = args[i + 1];
+      i++;
     }
   }
 
-  return { mode, port, host };
+  return { mode, port, host, authToken };
 }
 
 async function startMCPServer() {
-  const { mode, port, host } = parseArgs();
+  const { mode, port, host, authToken } = parseArgs();
 
   // Un-suppress console for http-only mode (no stdio conflict)
   if (mode === 'http') {
@@ -238,6 +292,8 @@ async function startMCPServer() {
   });
 
   try {
+    const config = loadConfig();
+
     const cache = new CacheManager({
       enabled: true,
       ttl: 86400,
@@ -247,7 +303,8 @@ async function startMCPServer() {
 
     const costManager = new CostManager({
       trackingEnabled: true,
-      dailyThreshold: 10
+      dailyThreshold: 10,
+      configCosts: config.costs.models,
     });
 
     // Share cache and costManager with lazy executor
@@ -256,7 +313,7 @@ async function startMCPServer() {
     // Start stdio transport
     if (mode === 'stdio' || mode === 'both') {
       const server = new Server(
-        { name: 'cross-review-mcp', version: '0.5.2' },
+        { name: 'cross-review-mcp', version: '0.6.0' },
         { capabilities: { tools: {} } }
       );
       registerTools(server, cache, costManager);
@@ -267,7 +324,16 @@ async function startMCPServer() {
     // Start HTTP server (dashboard + MCP endpoint)
     if (mode === 'http' || mode === 'both') {
       const { startHTTPServer } = await import('./server.js');
-      await startHTTPServer({ port, host, cache, costManager, registerTools });
+      await startHTTPServer({
+        port,
+        host,
+        cache,
+        costManager,
+        registerTools,
+        authToken,
+        providerIds: config.reviewers.map(r => r.id),
+        version: '0.6.0',
+      });
     }
   } catch (error: any) {
     originalError('[MCP] FATAL ERROR:', error);

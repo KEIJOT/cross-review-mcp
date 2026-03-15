@@ -7,6 +7,7 @@ export interface CostConfig {
   trackingEnabled: boolean;
   dailyThreshold: number;  // Alert if daily spend exceeds this ($)
   monthlyThreshold?: number;  // Alert if monthly spend exceeds this ($)
+  configCosts?: Record<string, { input_per_1m: number; output_per_1m: number }>;  // From llmapi.config.json
 }
 
 export interface ModelCost {
@@ -16,8 +17,8 @@ export interface ModelCost {
   costPerOutputToken: number;
 }
 
-// Pricing as of March 2026
-const MODEL_COSTS: Record<string, ModelCost> = {
+// Default fallback pricing (used only when config doesn't provide costs)
+const DEFAULT_MODEL_COSTS: Record<string, ModelCost> = {
   'gpt-4o': {
     inputTokens: 0,
     outputTokens: 0,
@@ -94,18 +95,28 @@ export class CostManager {
   }
 
   /**
-   * Calculate cost for token usage
+   * Calculate cost for token usage.
+   * Uses config costs (from llmapi.config.json) first, falls back to hardcoded defaults.
    */
   private calculateCost(
     provider: string,
     inputTokens: number,
     outputTokens: number
   ): number {
+    // Try config costs first (provider ID matches directly)
+    const configCost = this.config.configCosts?.[provider];
+    if (configCost) {
+      const inputCost = (inputTokens / 1_000_000) * configCost.input_per_1m;
+      const outputCost = (outputTokens / 1_000_000) * configCost.output_per_1m;
+      return inputCost + outputCost;
+    }
+
+    // Fall back to hardcoded defaults
     const modelKey = this.getModelKey(provider);
-    const costs = MODEL_COSTS[modelKey];
+    const costs = DEFAULT_MODEL_COSTS[modelKey];
 
     if (!costs) {
-      console.warn(`[Cost] Unknown model: ${provider}`);
+      console.warn(`[Cost] Unknown model: ${provider}. Add costs to llmapi.config.json for accurate tracking.`);
       return 0;
     }
 
@@ -115,7 +126,7 @@ export class CostManager {
   }
 
   /**
-   * Map provider name to model key
+   * Map provider name to model key (fallback for hardcoded costs)
    */
   private getModelKey(provider: string): string {
     const mapping: Record<string, string> = {
@@ -123,7 +134,7 @@ export class CostManager {
       gemini: 'gemini-2.0-pro',
       deepseek: 'deepseek-chat',
       mistral: 'mistral-large',
-      openrouter: 'gpt-4o',  // Assume GPT-4 for openrouter
+      openrouter: 'gpt-4o',
     };
     return mapping[provider.toLowerCase()] || provider;
   }

@@ -1,10 +1,10 @@
-# ✅ Production Checklist v0.5.2
+# ✅ Production Checklist v0.6.0
 
 ## Pre-Launch Verification
 
 - [x] **MCP Server Running**
   - MCP protocol implemented
-  - 4 tools registered and working
+  - 5 tools registered and working
   - Tools discoverable via MCP Inspector
 
 - [x] **All 5 AI Models Connected**
@@ -121,17 +121,17 @@
 ## Git & Release Preparation
 
 - [ ] **Git Commit**
-  - Commit message: "v0.5.2: Production-ready cross-review-mcp with get_dev_guidance"
+  - Commit message: "v0.6.0: Production-ready cross-review-mcp with get_dev_guidance"
   - Include: docs, updated README, fixed providers.ts, updated package.json
 
 - [ ] **Git Tag**
-  - Tag: v0.5.2
+  - Tag: v0.6.0
   - Message: "Production release: Multi-model consensus for development blockers"
 
 - [ ] **GitHub Push**
   - Push to origin/main
   - Push tags
-  - Verify GitHub shows v0.5.2 release
+  - Verify GitHub shows v0.6.0 release
 
 ---
 
@@ -141,7 +141,7 @@
   - `npm run build` succeeds
   - `npm test` passes (if tests exist)
   - `.gitignore` includes `.env`, `node_modules`, `dist`
-  - `package.json` version = 0.5.2
+  - `package.json` version = 0.6.0
 
 - [ ] **Publish to NPM**
   - `npm login` (provide credentials)
@@ -202,7 +202,7 @@
 **Deployment:**
 - ✅ All files on Mac
 - ✅ .env configured with real keys
-- ✅ Package.json updated (v0.5.2)
+- ✅ Package.json updated (v0.6.0)
 - ✅ Ready to commit and tag
 
 ---
@@ -216,7 +216,7 @@
 ❌ **Web dashboard**
 ❌ **GitHub integration**
 
-These are features, not bugs. v0.5.2 is **complete and production-ready** without them.
+These are features, not bugs. v0.6.0 is **complete and production-ready** without them.
 
 ---
 
@@ -225,25 +225,25 @@ These are features, not bugs. v0.5.2 is **complete and production-ready** withou
 1. **Commit to Git**
    ```bash
    git add -A
-   git commit -m "v0.5.2: Production release with docs"
+   git commit -m "v0.6.0: Production release with docs"
    ```
 
 2. **Tag Release**
    ```bash
-   git tag v0.5.2 -m "Production: Multi-model consensus for dev blockers"
-   git push origin v0.5.2
+   git tag v0.6.0 -m "Production: Multi-model consensus for dev blockers"
+   git push origin v0.6.0
    ```
 
 3. **Create GitHub Release**
    - Go to GitHub Releases
    - Click "Create Release"
-   - Tag: v0.5.2
-   - Title: "cross-review-mcp v0.5.2 — Production Ready"
+   - Tag: v0.6.0
+   - Title: "cross-review-mcp v0.6.0 — Production Ready"
    - Body: (copy CHANGELOG snippet)
 
 4. **Update README**
    - Add link to Releases page
-   - Add "Latest: v0.5.2" badge
+   - Add "Latest: v0.6.0" badge
 
 ---
 
@@ -267,7 +267,7 @@ These are features, not bugs. v0.5.2 is **complete and production-ready** withou
 ✅ **Ready to Ship**
 - No bugs known
 - No breaking changes
-- No missing features for v0.5.2
+- No missing features for v0.6.0
 
 ---
 

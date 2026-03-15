@@ -1,11 +1,15 @@
 # cross-review-mcp v1.0.0 Roadmap (Updated 2026-03-15)
 
-## Current Status: Near v1.0 Release
+## Current Status: v0.6.0 — Ready to Publish
 
-**Server:** Running v0.5.2 with 4 tools, stdio + HTTP dual transport
+**Server:** Running v0.6.0 with 5 tools, stdio + HTTP dual transport
 **Dashboard:** Live web dashboard with real-time SSE at port 6280
-**Remote:** StreamableHTTP transport for network MCP connections
-**Tests:** 79 assertions passing (smoke + unit tests)
+**Remote:** StreamableHTTP transport + SSH for network MCP connections
+**Auth:** Bearer token auth for HTTP endpoints
+**Health:** `/health` endpoint for load balancers and Docker
+**Consensus:** Semantic similarity (Jaccard) clustering
+**Model Selection:** Per-request presets (fast/balanced/thorough) or explicit IDs
+**Tests:** 167 assertions passing (102 smoke + 34 integration + 31 E2E)
 
 ---
 
@@ -40,9 +44,13 @@
 - [x] Unit tests for CostManager (track, accumulate, multi-model, report, reset)
 - [x] Unit tests for EventBus (emit/receive, ring buffer, uptime)
 - [x] Unit tests for Logger (configure, reconfigure)
-- [x] Integration tests with mock LLM responses (22 tests)
+- [x] Integration tests with mock LLM responses (34 tests)
 - [x] E2E test: Full workflow from error to guidance (31 tests)
 - [x] MCP inspector/protocol smoke test (initialize + list tools verified)
+- [x] Auth middleware tests (bearer token, query param, bypass for health)
+- [x] Health endpoint tests
+- [x] Model selection tests (presets + explicit IDs)
+- [x] Semantic similarity tests (Jaccard, clustering)
 
 ### Documentation
 - [x] API documentation (each tool + parameters in README)
@@ -57,7 +65,12 @@
 - [x] Live web dashboard (src/dashboard.ts + src/server.ts)
 - [x] HTTP transport for remote access (StreamableHTTP)
 - [x] Dual transport mode (stdio + HTTP simultaneously)
-- [ ] Model performance benchmarking (future)
+- [x] HTTP authentication (bearer token, --auth-token flag)
+- [x] Health check endpoint (GET /health)
+- [x] Per-request model selection (fast/balanced/thorough presets)
+- [x] Semantic consensus (Jaccard similarity clustering)
+- [x] Config-based provider costs (zero-code provider addition)
+- [x] Model performance benchmarking (`benchmark_models` tool)
 
 ---
 
@@ -101,12 +114,12 @@
 - [x] Consensus algorithm implemented
 - [x] Error handling & retry logic
 - [x] Caching & cost tracking wired into executor
-- [x] All 4 tools working end-to-end
+- [x] All 5 tools working end-to-end
 - [x] Live web dashboard
 - [x] Remote MCP access via HTTP
 
 **Quality:**
-- [x] 132 tests passing (79 smoke + 22 integration + 31 E2E)
+- [x] 167 tests passing (102 smoke + 34 integration + 31 E2E)
 - [x] All error cases handled gracefully (graceful degradation)
 - [x] Structured JSON logging
 - [x] Real API key E2E testing passed (OpenAI + Gemini verified)

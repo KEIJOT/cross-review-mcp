@@ -183,6 +183,19 @@ console.log("\n\u2500\u2500 HTTP Server API \u2500\u2500\n");
     assert(false, `SSE request failed: ${e.message}`);
   }
 
+  // Test health endpoint
+  try {
+    const healthRes = await fetch(`http://127.0.0.1:${port}/health`);
+    assert(healthRes.status === 200, "Health endpoint returns 200");
+    const health = await healthRes.json();
+    assert(health.status === "ok", "Health status is ok");
+    assert(typeof health.uptime === "number", "Health includes uptime");
+    assert(typeof health.providers === "object", "Health includes providers");
+    assert(health.version !== undefined, "Health includes version");
+  } catch (e) {
+    assert(false, `Health request failed: ${e.message}`);
+  }
+
   // Test MCP endpoint handles initialization request
   try {
     const mcpRes = await fetch(`http://127.0.0.1:${port}/mcp`, {
@@ -200,6 +213,90 @@ console.log("\n\u2500\u2500 HTTP Server API \u2500\u2500\n");
     }
   } catch (e) {
     assert(false, `MCP request failed: ${e.message}`);
+  }
+
+  // ── Auth Token ──
+  console.log("\n── Auth Token ──\n");
+
+  const authPort = 16281;
+  const testToken = "test-secret-token";
+  const authCache = new CacheManager({ enabled: true, ttl: 60, maxSize: 10, strategy: "lru" });
+  const authCostMgr = new CostManager({ trackingEnabled: true, dailyThreshold: 10 });
+  startHTTPServer({
+    port: authPort,
+    host: "127.0.0.1",
+    cache: authCache,
+    costManager: authCostMgr,
+    registerTools,
+    authToken: testToken,
+  });
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // Health always works without auth
+  try {
+    const healthRes = await fetch(`http://127.0.0.1:${authPort}/health`);
+    assert(healthRes.status === 200, "Health bypasses auth");
+  } catch (e) {
+    assert(false, `Auth health failed: ${e.message}`);
+  }
+
+  // Dashboard without token should fail
+  try {
+    const noAuthRes = await fetch(`http://127.0.0.1:${authPort}/`);
+    assert(noAuthRes.status === 401, "Dashboard without auth returns 401");
+  } catch (e) {
+    assert(false, `Auth dashboard failed: ${e.message}`);
+  }
+
+  // Dashboard with token query param should work
+  try {
+    const tokenRes = await fetch(`http://127.0.0.1:${authPort}/?token=${testToken}`);
+    assert(tokenRes.status === 200, "Dashboard with token query param returns 200");
+  } catch (e) {
+    assert(false, `Auth token query failed: ${e.message}`);
+  }
+
+  // Stats with Bearer header should work
+  try {
+    const bearerRes = await fetch(`http://127.0.0.1:${authPort}/api/stats`, {
+      headers: { Authorization: `Bearer ${testToken}` },
+    });
+    assert(bearerRes.status === 200, "Stats with Bearer token returns 200");
+  } catch (e) {
+    assert(false, `Auth bearer failed: ${e.message}`);
+  }
+
+  // Stats without auth should fail
+  try {
+    const noAuthStats = await fetch(`http://127.0.0.1:${authPort}/api/stats`);
+    assert(noAuthStats.status === 401, "Stats without auth returns 401");
+  } catch (e) {
+    assert(false, `Auth stats failed: ${e.message}`);
+  }
+
+  // ── Model Selection (Executor) ──
+  console.log("\n── Model Selection ──\n");
+
+  {
+    const selCache = new CacheManager({ enabled: false, ttl: 60, maxSize: 10, strategy: "lru" });
+    const selCostMgr = new CostManager({ trackingEnabled: true, dailyThreshold: 10 });
+    const selTracker = new TokenTracker(testLogFile);
+    const selConfig = {
+      reviewers: [],
+      execution: { strategy: "wait_all", allow_partial_results: true },
+      costs: { models: { a: { input_per_1m: 1, output_per_1m: 1 }, b: { input_per_1m: 10, output_per_1m: 10 } } },
+      tracking: { enabled: true, log_file: testLogFile },
+    };
+    const selExecutor = new ReviewExecutor(selConfig, selTracker, selCache, selCostMgr);
+
+    // With no providers, models param is harmless
+    const fastResult = await selExecutor.execute({ content: "test", type: "general", models: "fast" });
+    assert(fastResult !== null, "Fast preset executes without error");
+
+    const specificResult = await selExecutor.execute({ content: "test2", type: "general", models: ["openai"] });
+    assert(specificResult !== null, "Specific model selection executes without error");
+
+    try { fs.unlinkSync(testLogFile); } catch (e) {}
   }
 
   // Print results before exit

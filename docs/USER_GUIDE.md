@@ -191,6 +191,13 @@ cross-review costs
 ✅ Shows: $ spent per AI model, daily budget, trends
 ```
 
+### 5. **Benchmark Models**
+
+```
+cross-review benchmark
+✅ Shows: Speed, accuracy, and cost comparisons across all configured models
+```
+
 ---
 
 ## Real Example: What You Get

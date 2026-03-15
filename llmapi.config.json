@@ -15,6 +15,33 @@
       "model": "gemini-2.0-flash",
       "timeout_ms": 30000,
       "execution_order": 2
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "provider": "openai-compatible",
+      "model": "deepseek-chat",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "timeout_ms": 30000,
+      "execution_order": 3
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral",
+      "provider": "openai-compatible",
+      "model": "mistral-large-latest",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "timeout_ms": 30000,
+      "execution_order": 4
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "provider": "openai-compatible",
+      "model": "meta-llama/llama-3.1-70b-instruct",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "timeout_ms": 30000,
+      "execution_order": 5
     }
   ],
   "execution": {
@@ -30,6 +57,18 @@
       "gemini": {
         "input_per_1m": 0.075,
         "output_per_1m": 0.3
+      },
+      "deepseek": {
+        "input_per_1m": 1.4,
+        "output_per_1m": 4.2
+      },
+      "mistral": {
+        "input_per_1m": 2,
+        "output_per_1m": 6
+      },
+      "openrouter": {
+        "input_per_1m": 0.8,
+        "output_per_1m": 0.8
       }
     }
   },

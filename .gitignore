@@ -47,3 +47,15 @@ coverage/
 api-keys.txt
 secrets/
 credentials.json
+
+# Generated docs
+docs/*.html
+
+# Claude Code
+.claude/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Cost tracking
+.llmapi_costs.json

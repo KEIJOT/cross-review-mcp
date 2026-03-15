@@ -15,14 +15,49 @@ export interface HTTPServerOptions {
   cache: CacheManager;
   costManager: CostManager;
   registerTools: (server: Server, cache: CacheManager, costManager: CostManager) => void;
+  authToken?: string;
+  providerIds?: string[];
+  version?: string;
 }
 
 export async function startHTTPServer(options: HTTPServerOptions): Promise<void> {
-  const { port, host, cache, costManager, registerTools } = options;
+  const { port, host, cache, costManager, registerTools, authToken, providerIds, version } = options;
   const app = express();
 
   // Track active transports per session
   const transports = new Map<string, StreamableHTTPServerTransport>();
+
+  // Health check endpoint (always unauthenticated)
+  app.get('/health', (_req: express.Request, res: express.Response) => {
+    const providers: Record<string, string> = {};
+    for (const id of (providerIds || [])) {
+      const envKey = `${id.toUpperCase()}_API_KEY`;
+      providers[id] = process.env[envKey] ? 'up' : 'down';
+    }
+    res.json({
+      status: 'ok',
+      uptime: Math.floor(eventBus.getUptimeMs() / 1000),
+      providers,
+      version: version || '0.6.0',
+      activeSessions: transports.size,
+      totalRequests: eventBus.getTotalRequests(),
+    });
+  });
+
+  // Auth middleware — applied to all routes except /health
+  if (authToken) {
+    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+      if (req.path === '/health') { next(); return; }
+
+      // Allow dashboard access with ?token= query param
+      if (req.path === '/' && req.query.token === authToken) { next(); return; }
+
+      const header = req.headers['authorization'];
+      if (header === `Bearer ${authToken}`) { next(); return; }
+
+      res.status(401).json({ error: 'Unauthorized. Provide Authorization: Bearer <token> header.' });
+    });
+  }
 
   // Parse JSON for MCP endpoint
   app.use('/mcp', express.json());
@@ -123,7 +158,7 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
     });
 
     const server = new Server(
-      { name: 'cross-review-mcp', version: '0.5.2' },
+      { name: 'cross-review-mcp', version: '0.6.0' },
       { capabilities: { tools: {} } },
     );
 

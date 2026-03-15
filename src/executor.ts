@@ -9,6 +9,13 @@ import { CostManager } from './cost-manager.js';
 import { eventBus } from './events.js';
 import { log } from './logger.js';
 
+// Model presets — sorted by cost (cheapest first based on typical config pricing)
+const MODEL_PRESETS: Record<string, { count: number; prefer: 'cheapest' | 'all' }> = {
+  fast: { count: 2, prefer: 'cheapest' },
+  balanced: { count: 3, prefer: 'cheapest' },
+  thorough: { count: Infinity, prefer: 'all' },
+};
+
 export class ReviewExecutor {
   private config: Config;
   private tracker: TokenTracker;
@@ -44,6 +51,47 @@ export class ReviewExecutor {
     log('info', 'executor', `${this.providers.size} providers ready`);
   }
 
+  /**
+   * Resolve which providers to use for a request.
+   * Supports preset names ('fast', 'balanced', 'thorough') or explicit model ID arrays.
+   */
+  private resolveProviders(models?: string | string[]): Map<string, LLMProvider> {
+    if (!models) return this.providers;
+
+    if (typeof models === 'string') {
+      // Preset name
+      const preset = MODEL_PRESETS[models];
+      if (!preset) {
+        log('warn', 'executor', `Unknown preset "${models}", using all providers`);
+        return this.providers;
+      }
+      if (preset.count >= this.providers.size) return this.providers;
+
+      // Sort providers by cost (cheapest first) using config costs
+      const sorted = Array.from(this.providers.entries()).sort((a, b) => {
+        const costA = this.config.costs.models[a[0]];
+        const costB = this.config.costs.models[b[0]];
+        const totalA = (costA?.input_per_1m || 0) + (costA?.output_per_1m || 0);
+        const totalB = (costB?.input_per_1m || 0) + (costB?.output_per_1m || 0);
+        return totalA - totalB;
+      });
+
+      return new Map(sorted.slice(0, preset.count));
+    }
+
+    // Explicit array of model IDs
+    const selected = new Map<string, LLMProvider>();
+    for (const id of models) {
+      const provider = this.providers.get(id);
+      if (provider) {
+        selected.set(id, provider);
+      } else {
+        log('warn', 'executor', `Requested model "${id}" not available, skipping`);
+      }
+    }
+    return selected.size > 0 ? selected : this.providers;
+  }
+
   private generateContentHash(content: string, type?: string): string {
     return crypto.createHash('sha256')
       .update(content + (type || ''))
@@ -57,7 +105,10 @@ export class ReviewExecutor {
     const reviewType = (request as any).type || 'general';
     const contentHash = request.contentHash || this.generateContentHash(request.content, reviewType);
 
-    log('info', 'executor', `Request ${requestId.slice(0, 8)}: type=${reviewType}, content=${request.content.length} chars, models=${this.providers.size}`);
+    // Resolve which providers to use for this request
+    const activeProviders = this.resolveProviders(request.models);
+
+    log('info', 'executor', `Request ${requestId.slice(0, 8)}: type=${reviewType}, content=${request.content.length} chars, models=${activeProviders.size}/${this.providers.size}`);
 
     // Check cache first
     if (this.cache) {
@@ -77,11 +128,11 @@ export class ReviewExecutor {
       timestamp: new Date().toISOString(),
       contentLength: request.content.length,
       type: reviewType,
-      models: Array.from(this.providers.keys()),
+      models: Array.from(activeProviders.keys()),
     });
 
-    // Execute all providers
-    const promises = Array.from(this.providers.entries()).map(async ([id, provider]) => {
+    // Execute selected providers
+    const promises = Array.from(activeProviders.entries()).map(async ([id, provider]) => {
       const modelStart = Date.now();
       try {
         const response = await provider.sendRequest(request.content, '');

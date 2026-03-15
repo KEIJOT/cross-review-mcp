@@ -1,0 +1,28 @@
+# Source (dist/ is published, not src/)
+src/
+tsconfig.json
+
+# Planning & internal docs
+.planning/
+ROADMAP_v1.0.0.md
+VALIDATION_REPORT.md
+
+# Development & CI
+.github/
+.claude/
+.playwright-mcp/
+test/
+docs/
+
+# Config & data files
+.env
+.env.*
+.llmapi_usage.json
+.llmapi_costs.json
+.llmapi_cache.json
+.DS_Store
+*.log
+
+# Docker
+Dockerfile
+.dockerignore

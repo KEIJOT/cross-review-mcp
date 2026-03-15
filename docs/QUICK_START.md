@@ -1,4 +1,4 @@
-# Quick Start — cross-review-mcp v0.5.0
+# Quick Start — cross-review-mcp v0.6.0
 
 5-minute setup guide to run multi-provider consensus reviews.
 
@@ -12,7 +12,7 @@
                      │
                      ▼
         ┌────────────────────────────┐
-        │   CROSS-REVIEW-MCP v0.5.0   │
+        │   CROSS-REVIEW-MCP v0.6.0   │
         └────────┬───────────┬────────┘
                  │           │
         ┌────────▼──┐   ┌────▼───────┐
@@ -306,20 +306,21 @@ Returns whatever responses arrived within 30 seconds.
 
 ---
 
-## 📊 View Interactive Stats Dashboard
+## 📊 Live Web Dashboard
 
-See real metrics from 5 production test cases:
+See real metrics from production reviews in real-time:
 
-**→ [**Open Interactive Dashboard**](../cross-review-v0.5.0-stats.html)**
+```bash
+npm run serve
+# Open http://localhost:6280
+```
 
 Features:
 - Metric cards (reviews, duration, cost, tokens)
 - Performance charts
 - Cost breakdown visualization
 - Model comparison cards
-- JSON export
-
-**Download and open in your browser** (no internet needed!)
+- Live SSE updates as each model completes
 
 ---
 
@@ -396,7 +397,7 @@ Normal: 950ms–1,810ms per review (median 1,250ms). Network latency dominates.
 
 ## 📚 Next Steps
 
-- **See real stats**: [Open Dashboard](../cross-review-v0.5.0-stats.html)
+- **See real stats**: Run `npm run serve` and open [Live Dashboard](http://localhost:6280)
 - **Understand metrics**: Read [STATS_DASHBOARD.md](STATS_DASHBOARD.md)
 - **Production checklist**: Review [VALIDATION_REPORT.md](../VALIDATION_REPORT.md)
 - **v0.6.0 features**: Check [v0.6.0-FEATURES-EXPLAINED.md](v0.6.0-FEATURES-EXPLAINED.md)

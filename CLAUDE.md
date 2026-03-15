@@ -40,6 +40,7 @@ Core source files in `src/`:
 - **`src/consensus-algorithm.ts`** — Consensus synthesis from multiple model perspectives.
 - **`src/cache.ts`** — LRU cache with TTL, disk persistence.
 - **`src/cost-manager.ts`** — Per-model cost tracking, daily/monthly thresholds, disk persistence.
+- **`src/benchmark.ts`** — Model performance benchmarking tool. Compares speed, accuracy, and cost across configured models.
 
 ### Data flow
 

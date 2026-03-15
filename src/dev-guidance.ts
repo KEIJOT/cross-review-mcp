@@ -40,7 +40,8 @@ export interface DevelopmentGuidanceResponse {
  */
 export async function analyzeDevelopmentProblem(
   problem: DevelopmentProblem,
-  reviewExecutor: any
+  reviewExecutor: any,
+  models?: string | string[],
 ): Promise<DevelopmentGuidanceResponse> {
   
   // Format the problem as a structured prompt for all models
@@ -79,6 +80,7 @@ Be concise, direct, and practical. Assume intermediate skill level.
     const result = await reviewExecutor.execute({
       content: prompt,
       type: 'general',  // Not security/performance/correctness, just general guidance
+      models,
     });
 
     // Parse the multi-model responses

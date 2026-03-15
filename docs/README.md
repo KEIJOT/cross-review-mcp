@@ -1,12 +1,12 @@
 # cross-review-mcp Documentation
 
-Complete documentation for cross-review-mcp v0.5.0 and v0.6.0 roadmap.
+Complete documentation for cross-review-mcp v0.6.0.
 
 ---
 
 ## 📋 Documentation Guide
 
-### **v0.5.0 (Current Release)**
+### **v0.6.0 (Current Release)**
 
 #### Core Documentation
 - **[QUICK_START.md](QUICK_START.md)** — 5-minute setup guide
@@ -28,13 +28,12 @@ Complete documentation for cross-review-mcp v0.5.0 and v0.6.0 roadmap.
   - 5 real test cases with metrics (6.65s, $0.0247)
   - Performance breakdown and reliability stats
 
-- **[HTML Stats Dashboard](../cross-review-v0.5.0-stats.html)** — Interactive visual UI
+- **[Live Dashboard](http://localhost:6280)** — Real-time web UI (run `npm run serve`)
   - Metric cards (reviews, duration, cost, tokens)
   - Performance bars (execution time)
   - Cost breakdown charts
   - Model consensus cards (GPT-5.2 vs Gemini)
-  - JSON export section
-  - **Open directly in any browser**
+  - Live SSE updates as each model completes
 
 ---
 
@@ -77,7 +76,7 @@ Complete documentation for cross-review-mcp v0.5.0 and v0.6.0 roadmap.
 
 ### For New Users
 1. Start with **[QUICK_START.md](QUICK_START.md)** (5 min read)
-2. View **[HTML Stats Dashboard](../cross-review-v0.5.0-stats.html)** (visual understanding)
+2. Run `npm run serve` and open **[Live Dashboard](http://localhost:6280)** (visual understanding)
 3. Check **[STATS_DASHBOARD.md](STATS_DASHBOARD.md)** (metrics explained)
 
 ### For Production Deployment
@@ -94,17 +93,15 @@ Complete documentation for cross-review-mcp v0.5.0 and v0.6.0 roadmap.
 
 ## 📊 Visual Artifacts
 
-### Interactive Stats Dashboard
-**File**: `cross-review-v0.5.0-stats.html`
+### Live Web Dashboard
+**Access**: Run `npm run serve` and open `http://localhost:6280`
 
-An interactive HTML dashboard showing:
+A real-time web dashboard showing:
 - Total reviews, duration, cost, tokens (metric cards)
 - Execution time visualization (bar charts)
 - Cost per review (cost breakdown)
 - Model performance comparison (GPT-5.2 vs Gemini)
-- JSON export for programmatic use
-
-**How to use**: Download and open in any web browser (Chrome, Safari, Firefox, Edge). No internet required—fully self-contained.
+- Live SSE updates as each model completes
 
 ### Production Validation Report
 **File**: `VALIDATION_REPORT.md`
@@ -128,7 +125,7 @@ Complete assessment covering:
 - Understanding output: **[QUICK_START.md](QUICK_START.md)** → "Understanding the Output (ReviewResult)"
 - Console stats: **[STATS_DASHBOARD.md](STATS_DASHBOARD.md)** → "Console Stats Example"
 - Dashboard template: **[STATS_DASHBOARD.md](STATS_DASHBOARD.md)** → "HTML Dashboard Template"
-- Real metrics: **[cross-review-v0.5.0-stats.html](../cross-review-v0.5.0-stats.html)** (view directly)
+- Real metrics: Run `npm run serve` and open **[Live Dashboard](http://localhost:6280)**
 
 ### Performance & Optimization
 - Baseline performance: **[VALIDATION_REPORT.md](../VALIDATION_REPORT.md)** → "Phase 3: Production Validation"
@@ -144,14 +141,14 @@ Complete assessment covering:
 
 ## 📈 Feature Matrix
 
-| Feature | v0.5.0 | v0.6.0 | Documentation |
+| Feature | v0.6.0 | v0.6.0 | Documentation |
 |---------|--------|--------|-----------------|
 | **Core Reviews** | ✅ | ✅ | QUICK_START |
 | **Stats Visibility** | ✅ | ✅ | STATS_DASHBOARD |
 | **Caching Layer** | ❌ | ✅ | v0.6.0-FEATURES-EXPLAINED |
 | **Rate Limiting** | ❌ | ✅ | v0.6.0-FEATURES-EXPLAINED |
 | **Batch Processing** | ❌ | ✅ | v0.6.0-FEATURES-EXPLAINED |
-| **Interactive Dashboard** | ✅ (HTML) | ✅ | cross-review-v0.5.0-stats.html |
+| **Live Dashboard** | ✅ | ✅ | `npm run serve` → localhost:6280 |
 
 ---
 
@@ -190,7 +187,7 @@ See **[QUICK_START.md](QUICK_START.md)** for complete examples.
 
 ## 📞 Support
 
-### Questions about v0.5.0?
+### Questions about v0.6.0?
 - Setup issues → **[QUICK_START.md](QUICK_START.md)** → "Troubleshooting"
 - Understanding stats → **[STATS_DASHBOARD.md](STATS_DASHBOARD.md)**
 - Production readiness → **[VALIDATION_REPORT.md](../VALIDATION_REPORT.md)**
@@ -205,13 +202,13 @@ See **[QUICK_START.md](QUICK_START.md)** for complete examples.
 ## 📝 Documentation Changelog
 
 ### Latest Updates
-- ✅ v0.5.0 production validation report (VALIDATION_REPORT.md)
-- ✅ Interactive stats dashboard HTML (cross-review-v0.5.0-stats.html)
+- ✅ v0.6.0 production validation report (VALIDATION_REPORT.md)
+- ✅ Live web dashboard (npm run serve → localhost:6280)
 - ✅ v0.6.0 complete feature specifications (v0.6.0-FEATURES-EXPLAINED.md)
 - ✅ v0.6.0 architecture deep dive (v0.6.0-ARCHITECTURE.md)
 
 ---
 
 **Last Updated**: 2026-03-15  
-**Current Version**: v0.5.0 (Production Ready)  
+**Current Version**: v0.6.0 (Production Ready)  
 **Next Version**: v0.6.0 (Caching + Rate Limiting + Batch Processing)
