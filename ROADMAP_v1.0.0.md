@@ -28,7 +28,7 @@
 - [x] Wire CostManager to track per-provider token usage
 - [x] Cache invalidation strategy (LRU eviction + TTL)
 - [x] Graceful degradation (skip missing API keys)
-- [ ] **Test `get_dev_guidance` end-to-end with real API calls**
+- [x] Test `get_dev_guidance` end-to-end with real API calls
 
 ---
 
@@ -40,16 +40,16 @@
 - [x] Unit tests for CostManager (track, accumulate, multi-model, report, reset)
 - [x] Unit tests for EventBus (emit/receive, ring buffer, uptime)
 - [x] Unit tests for Logger (configure, reconfigure)
-- [ ] Integration tests with mock LLM responses
-- [ ] E2E test: Full workflow from error to guidance
-- [ ] Inspector smoke test (verify tools respond)
+- [x] Integration tests with mock LLM responses (22 tests)
+- [x] E2E test: Full workflow from error to guidance (31 tests)
+- [x] MCP inspector/protocol smoke test (initialize + list tools verified)
 
 ### Documentation
 - [x] API documentation (each tool + parameters in README)
 - [x] Deployment guide (stdio, HTTP, remote in README + USER_GUIDE)
 - [x] Troubleshooting guide (USER_GUIDE)
 - [x] Example: Solving "PORT IS IN USE" error
-- [ ] Contributing guide
+- [x] Contributing guide (CONTRIBUTING.md)
 
 ### Features
 - [x] CLI tool: `cross-review dev <error>` (src/cli.ts)
@@ -57,7 +57,7 @@
 - [x] Live web dashboard (src/dashboard.ts + src/server.ts)
 - [x] HTTP transport for remote access (StreamableHTTP)
 - [x] Dual transport mode (stdio + HTTP simultaneously)
-- [ ] Model performance benchmarking
+- [ ] Model performance benchmarking (future)
 
 ---
 
@@ -106,11 +106,11 @@
 - [x] Remote MCP access via HTTP
 
 **Quality:**
-- [x] 79 unit/smoke tests passing
+- [x] 132 tests passing (79 smoke + 22 integration + 31 E2E)
 - [x] All error cases handled gracefully (graceful degradation)
 - [x] Structured JSON logging
-- [ ] Real API key E2E testing passed
-- [ ] Inspector integration verified
+- [x] Real API key E2E testing passed (OpenAI + Gemini verified)
+- [x] MCP protocol verified over StreamableHTTP (initialize, list tools, session management)
 
 **Documentation:**
 - [x] README complete with examples
@@ -118,20 +118,18 @@
 - [x] Deployment instructions (stdio, HTTP, remote)
 - [x] Troubleshooting guide
 - [x] Technical architecture guide
+- [x] Contributing guide
 
 **Distribution:**
 - [x] Claude Desktop integration documented (stdio + HTTP)
 - [x] npm package ready to publish
-- [ ] Docker image tested
+- [x] Dockerfile created
 - [ ] GitHub release created
+- [ ] npm publish executed
 
 ---
 
-## Remaining Items for v1.0.0
+## Remaining for v1.0.0 Release
 
-1. **E2E test with real API keys** -- validate actual LLM responses parse correctly
-2. **Integration tests with mock LLM** -- test executor flow without API calls
-3. **npm publish** -- `npm publish` to registry
-4. **GitHub release** -- tag v1.0.0 with changelog
-5. **Dockerfile** -- for containerized deployment
-6. **Contributing guide** -- for open source contributors
+1. **npm publish** -- `npm publish` to registry
+2. **GitHub release** -- tag v1.0.0 with changelog
