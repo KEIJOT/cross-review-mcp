@@ -11,8 +11,10 @@ Cross-Review MCP — an MCP server that sends user content to multiple LLMs with
 ```bash
 npm run build          # tsc → dist/
 npm run dev            # tsc --watch
-npm run test           # build + run test/smoke.test.js (74 assertions, no API keys needed)
-npm start              # start MCP server (stdio transport)
+npm run test           # build + run test/smoke.test.js (30 assertions, no API keys needed)
+npm start              # start MCP server (stdio transport, default)
+npm run serve          # HTTP mode: dashboard + remote MCP on port 6280
+npm run serve:both     # stdio + HTTP simultaneously
 npm run inspect        # MCP protocol inspector/debugger
 ```
 
@@ -25,20 +27,34 @@ node test/test-keys.mjs      # validate API key configuration
 
 ## Architecture
 
-Three source files, ~1100 LOC total:
+Core source files in `src/`:
 
-- **`src/index.ts`** — MCP server setup, tool registration (`cross_review`, `list_models`, `list_scrutiny_levels`, `list_content_types`), input validation via Zod, result formatting with severity filtering
-- **`src/engine.ts`** — `CrossReviewEngine` class. Manages provider clients (OpenAI, Gemini, OpenAI-compatible), runs all reviewers in parallel via `Promise.all()`, selects the most cautious model as consensus arbitrator, tracks token usage and cost estimation
-- **`src/prompts.ts`** — Prompt templates. 4 scrutiny levels (quick/standard/adversarial/redteam), 7 content types (general/paper/code/proposal/legal/medical/financial), confidence calibration rules
+- **`src/index.ts`** — Entry point. Parses `--mode`/`--port`/`--host` CLI flags. Exports `registerTools()` factory shared by stdio and HTTP transports. Manages console suppression for stdio mode.
+- **`src/executor.ts`** — `ReviewExecutor`. Sends requests to all providers in parallel, emits events to `eventBus` as each model completes (not after Promise.all).
+- **`src/events.ts`** — Typed `EventBus` (EventEmitter subclass). Events: `request:start`, `model:complete`, `request:complete`. In-memory ring buffer (100 entries) for dashboard history.
+- **`src/server.ts`** — Express HTTP server. Routes: `GET /` (dashboard), `GET /api/stats`, `GET /api/events` (SSE), `POST|GET|DELETE /mcp` (StreamableHTTP transport with per-session Server instances).
+- **`src/dashboard.ts`** — Embedded HTML/CSS/JS dashboard as template literal. Connects via SSE for live updates.
+- **`src/config.ts`** — Configuration loading + Zod validation.
+- **`src/providers.ts`** — Provider abstraction (OpenAI, Gemini, OpenAI-compatible).
+- **`src/dev-guidance.ts`** — Developer guidance tool. Formats problems, parses multi-model responses, feeds consensus algorithm.
+- **`src/consensus-algorithm.ts`** — Consensus synthesis from multiple model perspectives.
+- **`src/cache.ts`** — LRU cache with TTL, disk persistence.
+- **`src/cost-manager.ts`** — Per-model cost tracking, daily/monthly thresholds, disk persistence.
 
 ### Data flow
 
-1. MCP client calls `cross_review` tool → Zod validates inputs
-2. Engine checks content size (warn >50K tokens, reject >100K)
-3. Builds adversarial prompt from scrutiny level + content type
-4. All reviewers called in parallel
-5. If `includeConsensus` and ≥2 successful reviews: arbitrator (model with fewest HIGH-confidence claims) synthesizes verdict (proceed/revise/abort)
+1. MCP client calls tool via stdio or HTTP transport
+2. `registerTools()` routes to appropriate handler
+3. ReviewExecutor sends to all providers in parallel, emitting `model:complete` events as each resolves
+4. Consensus algorithm synthesizes results
+5. Dashboard receives events via SSE in real-time
 6. Returns structured result with per-model critiques, consensus, token counts, and cost
+
+### Server modes
+
+- `--mode stdio` (default) — stdin/stdout transport, console suppressed
+- `--mode http` — Express server with dashboard + StreamableHTTP MCP endpoint
+- `--mode both` — stdio + HTTP simultaneously (different I/O channels, no conflict)
 
 ### Provider abstraction
 

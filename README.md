@@ -173,9 +173,9 @@ Output: Cost per provider, total spend, daily budget status
 ## 🏗️ Architecture
 
 ```
-You (Claude.ai)
+You (Claude.ai / Claude Desktop / CLI)
     ↓
-MCP Server (registers 4 tools)
+MCP Server (stdio or HTTP transport)
     ↓
 Tool Handler (e.g., get_dev_guidance)
     ↓
@@ -188,9 +188,11 @@ Response Parser (handles all 5 response formats)
 Consensus Algorithm (what do they agree on?)
     ↓
 Result back to you (root cause + perspectives + confidence)
+    ↓
+Live Dashboard (real-time SSE updates to browser)
 ```
 
-**Key insight:** All 5 models answer IN PARALLEL, not sequentially. Same speed as asking 1 AI, 5× the brains.
+**Key insight:** All 5 models answer IN PARALLEL, not sequentially. Same speed as asking 1 AI, 5x the brains.
 
 ---
 
@@ -211,18 +213,45 @@ npm run build
 npm start
 ```
 
-### Option 3: Docker
-```bash
-docker run \
-  -e OPENAI_API_KEY=sk-... \
-  -e GEMINI_API_KEY=AIza... \
-  cross-review-mcp
+### Option 3: Claude Code (stdio, local)
+Add to your Claude Desktop config (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "command": "node",
+      "args": ["/path/to/cross-review-mcp/dist/index.js"]
+    }
+  }
+}
 ```
 
-### Option 4: Claude.ai (MCP Integration)
-1. Install via MCP protocol
-2. Use naturally in conversations
-3. No CLI needed
+### Option 4: HTTP Server with Dashboard
+Run the server with a live web dashboard:
+```bash
+npm run serve          # HTTP mode on port 6280
+# or
+npm run serve:both     # stdio + HTTP simultaneously
+```
+Open `http://localhost:6280` to see the dashboard.
+
+### Option 5: Remote Server (Network Access)
+Run on a Linux box (e.g., 192.168.1.120) and connect from any machine:
+```bash
+# On the server:
+npm run serve
+```
+Then on any Claude Desktop client, use the `url` field:
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "url": "http://192.168.1.120:6280/mcp"
+    }
+  }
+}
+```
+No SSH tunnel needed. Uses MCP's StreamableHTTP transport.
 
 ---
 
@@ -241,10 +270,57 @@ OPENROUTER_API_KEY=sk-or-v1-...
 
 **Optional:** Don't have all 5? That's fine. Use what you have.
 
-**Security:** 
+**Security:**
 - Add `.env` to `.gitignore` (never commit secrets)
 - Use environment variables in production
 - Never share your `.env` file
+
+---
+
+## 🖥️ Server Modes
+
+The server supports three startup modes via the `--mode` flag:
+
+| Mode | Command | Description |
+|------|---------|-------------|
+| `stdio` | `npm start` | Default. Local Claude Code via stdin/stdout. No HTTP server. |
+| `http` | `npm run serve` | HTTP server only. Dashboard + MCP endpoint for remote clients. |
+| `both` | `npm run serve:both` | Both transports simultaneously. Local Claude Code + remote access. |
+
+### CLI Flags
+
+```bash
+node dist/index.js --mode http --port 6280 --host 0.0.0.0
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--mode` | `stdio` | Transport mode: `stdio`, `http`, or `both` |
+| `--port` | `6280` | HTTP server port |
+| `--host` | `0.0.0.0` | HTTP server bind address |
+
+---
+
+## 📊 Live Dashboard
+
+When running in `http` or `both` mode, a live web dashboard is available at `http://localhost:6280`.
+
+**Dashboard features:**
+- Real-time request feed with per-model responses appearing as they complete
+- Per-model stats table (requests, avg time, tokens, error rate)
+- Cost cards (today / month)
+- Cache stats (hit rate, entries)
+- Active request count and server uptime
+
+The dashboard uses Server-Sent Events (SSE) for live updates - no page refresh needed.
+
+**Endpoints:**
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/` | GET | Live web dashboard |
+| `/api/stats` | GET | JSON stats (costs, cache, recent requests) |
+| `/api/events` | GET | SSE stream for real-time updates |
+| `/mcp` | POST/GET/DELETE | MCP StreamableHTTP transport |
 
 ---
 
@@ -293,21 +369,18 @@ Learn more in [TECHNICAL_ARCHITECTURE.md](./docs/TECHNICAL_ARCHITECTURE.md).
 
 ## 📋 What's Included
 
-✅ **v0.5.2 (Current)**
+**v0.5.2 (Current)**
 - MCP server + 4 tools
 - 5 AI model integration (parallel execution)
 - Consensus algorithm
 - Developer guidance tool
 - Caching layer
 - Cost tracking
+- Live web dashboard with real-time SSE updates
+- HTTP transport for remote/network access (StreamableHTTP)
+- Dual transport mode (stdio + HTTP simultaneously)
 - Full documentation
 - Production-ready
-
-❌ **Not Yet (v1.0+)**
-- Advanced consensus voting
-- IDE/VS Code integration
-- Web dashboard
-- GitHub issue integration
 
 ---
 

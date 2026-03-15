@@ -3,6 +3,7 @@ import { Config } from './config.js';
 import { ReviewRequest, ReviewResult, LLMResponse } from './types.js';
 import { createProvider, LLMProvider } from './providers.js';
 import { TokenTracker } from './tracking.js';
+import { eventBus } from './events.js';
 
 export class ReviewExecutor {
   private config: Config;
@@ -17,10 +18,12 @@ export class ReviewExecutor {
 
   private initializeProviders(): void {
     for (const reviewer of this.config.reviewers) {
-      const envKey = `${reviewer.provider.toUpperCase()}_API_KEY`;
+      // Use reviewer id for env key (e.g., DEEPSEEK_API_KEY), not provider name
+      const envKey = `${reviewer.id.toUpperCase()}_API_KEY`;
       const apiKey = process.env[envKey];
       if (!apiKey) {
-        throw new Error(`Missing API key for ${reviewer.id}: ${envKey}`);
+        // Skip this provider instead of crashing (graceful degradation)
+        continue;
       }
       const provider = createProvider(reviewer, apiKey);
       this.providers.set(reviewer.id, provider);
@@ -30,14 +33,34 @@ export class ReviewExecutor {
   async execute(request: ReviewRequest): Promise<ReviewResult> {
     const startTime = Date.now();
     const responses = new Map<string, LLMResponse>();
+    const requestId = eventBus.generateRequestId();
+
+    // Emit request start
+    eventBus.emitRequestStart({
+      requestId,
+      timestamp: new Date().toISOString(),
+      contentLength: request.content.length,
+      type: (request as any).type || 'general',
+      models: Array.from(this.providers.keys()),
+    });
 
     // Execute all providers
     const promises = Array.from(this.providers.entries()).map(async ([id, provider]) => {
+      const modelStart = Date.now();
       try {
         const response = await provider.sendRequest(request.content, '');
         responses.set(id, response);
+        eventBus.emitModelComplete({
+          requestId,
+          modelId: id,
+          timestamp: new Date().toISOString(),
+          success: true,
+          inputTokens: response.inputTokens,
+          outputTokens: response.outputTokens,
+          executionTimeMs: response.executionTimeMs || (Date.now() - modelStart),
+        });
       } catch (error) {
-        responses.set(id, {
+        const errorResponse: LLMResponse = {
           modelId: id,
           content: '',
           inputTokens: 0,
@@ -45,6 +68,17 @@ export class ReviewExecutor {
           finishReason: 'error',
           error: String(error),
           executionTimeMs: Date.now() - startTime,
+        };
+        responses.set(id, errorResponse);
+        eventBus.emitModelComplete({
+          requestId,
+          modelId: id,
+          timestamp: new Date().toISOString(),
+          success: false,
+          inputTokens: 0,
+          outputTokens: 0,
+          executionTimeMs: Date.now() - modelStart,
+          error: String(error),
         });
       }
     });
@@ -81,6 +115,17 @@ export class ReviewExecutor {
       execution_strategy: strategy,
       total_cost_usd: totalCost,
       models: Array.from(responses.keys()),
+    });
+
+    // Emit request complete
+    const successCount = Array.from(responses.values()).filter(r => !r.error).length;
+    eventBus.emitRequestComplete({
+      requestId,
+      timestamp: new Date().toISOString(),
+      executionTimeMs,
+      totalCost,
+      modelCount: responses.size,
+      successCount,
     });
 
     return {

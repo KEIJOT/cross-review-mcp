@@ -22,7 +22,9 @@
     "dev": "tsc --watch",
     "test": "npm run build && node test/smoke.test.js",
     "prepublishOnly": "npm run build",
-    "inspect": "pkill -9 node; sleep 3; npx @modelcontextprotocol/inspector node dist/index.js"
+    "inspect": "pkill -9 node; sleep 3; npx @modelcontextprotocol/inspector node dist/index.js",
+    "serve": "node dist/index.js --mode http --port 6280",
+    "serve:both": "node dist/index.js --mode both --port 6280"
   },
   "keywords": [
     "mcp",
@@ -52,10 +54,12 @@
     "@google/generative-ai": "^0.21.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "commander": "^12.1.0",
+    "express": "^5.1.0",
     "openai": "^4.0.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.0",
     "@types/node": "^20.11.24",
     "dotenv": "^17.3.1",
     "typescript": "^5.8.3"

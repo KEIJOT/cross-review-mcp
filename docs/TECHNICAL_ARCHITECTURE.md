@@ -51,16 +51,17 @@ Imagine building with LEGO:
 
 ---
 
-## The 7 LEGO Blocks
+## The 10 LEGO Blocks
 
 ### Block 1: **MCP Server** (src/index.ts)
 
 **What:** The front door. Listens for requests from Claude.
 
-**Does:** 
-- Waits for you to call a tool
+**Does:**
+- Supports three startup modes: `stdio` (default), `http` (dashboard + remote), `both`
 - Registers 4 tools (get_dev_guidance, review_content, cache_stats, cost_summary)
 - Lazy-loads the ReviewExecutor only when needed (saves memory)
+- Parses `--mode`, `--port`, `--host` CLI flags
 
 **Real analogy:** Like a receptionist at a hotel. You ask for help, they figure out who to call.
 
@@ -338,26 +339,90 @@ But you still get an answer!
 
 ---
 
+### Block 8: **Event Bus** (src/events.ts)
+
+**What:** The broadcaster. Tells the dashboard what's happening in real-time.
+
+**Does:**
+- Emits typed events: `request:start`, `model:complete`, `request:complete`
+- Keeps a ring buffer of the last 100 requests (bounded memory ~200KB)
+- Each model completion fires individually (not waiting for all models)
+- Singleton pattern so executor and server share the same instance
+
+**Real analogy:** Like a sports commentator. They announce each play as it happens, not just the final score.
+
+---
+
+### Block 9: **HTTP Server** (src/server.ts)
+
+**What:** The network gateway. Serves the dashboard and accepts remote MCP connections.
+
+**Does:**
+- Express app with four route groups: dashboard, stats API, SSE events, MCP protocol
+- StreamableHTTP transport with per-session Server instances
+- SSE endpoint subscribes to EventBus, cleans up on disconnect
+- Manages session lifecycle (create, route, cleanup)
+
+**Real analogy:** Like a web server at a restaurant. The kitchen (executor) cooks, the server (HTTP) delivers to tables (clients).
+
+---
+
+### Block 10: **Dashboard** (src/dashboard.ts)
+
+**What:** The control panel. A live web UI showing everything that's happening.
+
+**Does:**
+- Entire dashboard embedded as a single HTML template (no external files)
+- Connects to `/api/events` via SSE for live updates
+- Shows: request feed, per-model stats, cost cards, cache metrics
+- Per-model responses appear in real-time as each model completes
+
+**Real analogy:** Like the departure board at an airport. Flights (requests) update live as they progress.
+
+---
+
 ## Deployment Models
 
-### 1. **Claude.ai (Easiest)**
-- Install via MCP protocol
-- Use naturally in conversations
-- No setup needed after connect
+### 1. **Claude Code (stdio, local)**
+Default mode. Add to Claude Desktop config:
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "command": "node",
+      "args": ["/path/to/dist/index.js"]
+    }
+  }
+}
+```
 
-### 2. **CLI Tool**
+### 2. **HTTP Server with Dashboard**
+```bash
+npm run serve          # http mode on port 6280
+npm run serve:both     # stdio + http simultaneously
+```
+Open `http://localhost:6280` for the live dashboard.
+
+### 3. **Remote Server (Network)**
+Run on a Linux box and connect from any Claude Desktop:
+```bash
+# Server (e.g., 192.168.1.120):
+npm run serve
+```
+```json
+// Client Claude Desktop config:
+{
+  "mcpServers": {
+    "cross-review": {
+      "url": "http://192.168.1.120:6280/mcp"
+    }
+  }
+}
+```
+
+### 4. **CLI Tool**
 ```bash
 cross-review dev --error "..." --tech "..."
-```
-
-### 3. **Docker Container**
-```bash
-docker run -e OPENAI_API_KEY=... cross-review-mcp
-```
-
-### 4. **Systemd Service (Linux)**
-```bash
-systemctl start cross-review-mcp
 ```
 
 ---
@@ -382,6 +447,6 @@ systemctl start cross-review-mcp
 
 ## That's the Architecture!
 
-5 AIs, 7 components, 1 amazing system.
+5 AIs, 10 components, 1 amazing system.
 
 **Next:** Read USER_GUIDE.md to start using it!

@@ -98,14 +98,55 @@ OPENROUTER_API_KEY=sk-or-v1-your-key-here
 
 ## How to Use It
 
-### In Claude.ai (Easiest)
+### In Claude Code (Local, stdio - Default)
 
-1. Connect cross-review-mcp to your Claude account
-2. Ask Claude: "Help me debug: PORT IS IN USE at 6277"
-3. Claude will use cross-review-mcp automatically
-4. Get answers from 5 models instantly
+Add to your Claude Desktop config (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "command": "node",
+      "args": ["/path/to/cross-review-mcp/dist/index.js"]
+    }
+  }
+}
+```
+Ask Claude naturally and it will use the tools automatically.
 
-### From Terminal
+### With Live Dashboard (HTTP mode)
+
+Run the server with a web dashboard:
+```bash
+npm run serve
+```
+Open `http://localhost:6280` in your browser to see live requests, costs, and per-model stats updating in real-time.
+
+### Remote Server (Network Access)
+
+Run on any machine on your network (e.g., a Linux box):
+```bash
+npm run serve   # Listens on 0.0.0.0:6280 by default
+```
+Then connect from Claude Desktop on any other machine using the `url` field:
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "url": "http://192.168.1.120:6280/mcp"
+    }
+  }
+}
+```
+No SSH tunnel needed. Uses MCP's StreamableHTTP transport natively.
+
+### Both Modes (Local + Remote)
+
+Run stdio for local Claude Code AND HTTP for the dashboard simultaneously:
+```bash
+npm run serve:both
+```
+
+### From Terminal (CLI)
 
 ```bash
 cross-review dev \
@@ -113,15 +154,6 @@ cross-review dev \
   --tech "MCP Inspector" \
   --env "macOS" \
   --tried "Killed processes, waited 5 seconds"
-```
-
-### In Docker
-
-```bash
-docker run \
-  -e OPENAI_API_KEY=sk-... \
-  -e GEMINI_API_KEY=AIza... \
-  cross-review-mcp
 ```
 
 ---
