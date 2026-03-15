@@ -66,6 +66,18 @@ Or run from source:
 }
 ```
 
+Or connect to a remote server (see [Remote Deployment](#remote-deployment)):
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "command": "npx",
+      "args": ["mcp-remote", "http://your-server:6280/mcp", "--allow-http"]
+    }
+  }
+}
+```
+
 ---
 
 ## Tools
@@ -211,35 +223,86 @@ Run in `http` or `both` mode, then open `http://localhost:6280`.
 
 ## Remote Deployment
 
-### Option A: SSH (stdio over SSH)
-```json
-{
-  "mcpServers": {
-    "cross-review": {
-      "command": "ssh",
-      "args": ["user@server", "cd /path/to/cross-review-mcp && node dist/index.js"]
-    }
-  }
-}
-```
+> **Important:** Claude Desktop does not support `"url"` in `claude_desktop_config.json` for remote MCP servers. It requires a local `"command"` to launch. Use `mcp-remote` to bridge to a remote HTTP server.
 
-### Option B: HTTP (StreamableHTTP transport)
+### Step 1: Run the server on a remote machine
+
 ```bash
-# On the server:
-AUTH_TOKEN=secret node dist/index.js --mode http --port 6280
+# Install and build
+git clone https://github.com/KEIJOT/cross-review-mcp.git
+cd cross-review-mcp && npm install && npm run build
+
+# Create .env with API keys
+cat > .env << 'EOF'
+OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=AIza...
+EOF
+
+# Run as a systemd service (recommended)
+sudo tee /etc/systemd/system/cross-review-mcp.service << 'EOF'
+[Unit]
+Description=Cross-Review MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=your-user
+WorkingDirectory=/path/to/cross-review-mcp
+EnvironmentFile=/path/to/cross-review-mcp/.env
+ExecStart=/usr/bin/node dist/index.js --mode http --port 6280 --host 0.0.0.0
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable --now cross-review-mcp
+
+# Verify it's running
+curl http://localhost:6280/health
 ```
+
+### Step 2: Connect Claude Desktop via `mcp-remote`
+
 ```json
 {
   "mcpServers": {
     "cross-review": {
-      "url": "http://your-server:6280/mcp",
-      "headers": { "Authorization": "Bearer secret" }
+      "command": "npx",
+      "args": ["mcp-remote", "http://your-server:6280/mcp", "--allow-http"]
     }
   }
 }
 ```
 
-### Option C: Docker
+`mcp-remote` is a lightweight bridge that runs locally, speaks stdio to Claude Desktop, and forwards to your remote HTTP server. The `--allow-http` flag is required for non-HTTPS URLs (LAN use). For production over the internet, use HTTPS instead.
+
+### With authentication
+
+```bash
+# On the server, add auth:
+# In .env, add: AUTH_TOKEN=my-secret
+# Or: node dist/index.js --mode http --auth-token my-secret
+```
+
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://your-server:6280/mcp",
+        "--allow-http",
+        "--header", "Authorization: Bearer my-secret"
+      ]
+    }
+  }
+}
+```
+
+### Docker
+
 ```bash
 docker build -t cross-review-mcp .
 docker run -p 6280:6280 \
@@ -248,6 +311,10 @@ docker run -p 6280:6280 \
   -e AUTH_TOKEN=secret \
   cross-review-mcp --mode http
 ```
+
+### Dashboard
+
+The live dashboard is always available at `http://your-server:6280` when running in HTTP mode — no extra setup needed.
 
 ---
 
