@@ -28,6 +28,7 @@ import { TokenTracker } from './tracking.js';
 import { CacheManager } from './cache.js';
 import { CostManager } from './cost-manager.js';
 import { analyzeDevelopmentProblem } from './dev-guidance.js';
+import { configureLogger } from './logger.js';
 
 // Re-export library components for NPM usage
 export { ReviewExecutor } from './executor.js';
@@ -39,6 +40,13 @@ export { CostManager } from './cost-manager.js';
 // LAZY INITIALIZATION: Don't load ReviewExecutor until tools need it
 let reviewExecutor: any = null;
 let isInitializing = false;
+let sharedCache: CacheManager | null = null;
+let sharedCostManager: CostManager | null = null;
+
+function setSharedServices(cache: CacheManager, costManager: CostManager) {
+  sharedCache = cache;
+  sharedCostManager = costManager;
+}
 
 async function getExecutor() {
   if (reviewExecutor) return reviewExecutor;
@@ -51,7 +59,7 @@ async function getExecutor() {
     const { ReviewExecutor } = await import('./executor.js');
     const config = loadConfig();
     const tracker = new TokenTracker('.llmapi_usage.json');
-    reviewExecutor = new ReviewExecutor(config, tracker);
+    reviewExecutor = new ReviewExecutor(config, tracker, sharedCache || undefined, sharedCostManager || undefined);
     return reviewExecutor;
   } finally {
     isInitializing = false;
@@ -223,6 +231,12 @@ async function startMCPServer() {
     suppressConsole = false;
   }
 
+  // Configure structured logging: disable for stdio (conflicts with MCP), enable for http
+  configureLogger({
+    enabled: mode === 'http' || mode === 'both',
+    level: 'info',
+  });
+
   try {
     const cache = new CacheManager({
       enabled: true,
@@ -235,6 +249,9 @@ async function startMCPServer() {
       trackingEnabled: true,
       dailyThreshold: 10
     });
+
+    // Share cache and costManager with lazy executor
+    setSharedServices(cache, costManager);
 
     // Start stdio transport
     if (mode === 'stdio' || mode === 'both') {

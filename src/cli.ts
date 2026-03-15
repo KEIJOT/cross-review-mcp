@@ -8,8 +8,30 @@ import { TokenTracker } from './tracking.js';
 import { analyzeDevelopmentProblem, formatGuidanceForCLI } from './dev-guidance.js';
 import { CacheManager } from './cache.js';
 import { CostManager } from './cost-manager.js';
+import { configureLogger } from './logger.js';
 
 const version = '0.5.2';
+
+// Shared instances that persist across CLI commands within one process
+const cache = new CacheManager({
+  enabled: true,
+  ttl: 86400,
+  maxSize: 1000,
+  strategy: 'lru',
+});
+
+const costManager = new CostManager({
+  trackingEnabled: true,
+  dailyThreshold: 10,
+});
+
+configureLogger({ enabled: true, level: 'info' });
+
+function createExecutor(): ReviewExecutor {
+  const config = loadConfig();
+  const tracker = new TokenTracker('.llmapi_usage.json');
+  return new ReviewExecutor(config, tracker, cache, costManager);
+}
 
 program.version(version);
 
@@ -27,9 +49,7 @@ program
     try {
       console.log('\n🔍 Analyzing your problem with cross-LLM consensus...\n');
 
-      const config = loadConfig();
-      const tracker = new TokenTracker('.llmapi_usage.json');
-      const executor = new ReviewExecutor(config, tracker);
+      const executor = createExecutor();
 
       const guidance = await analyzeDevelopmentProblem(
         {
@@ -62,9 +82,7 @@ program
     try {
       console.log('\n📋 Reviewing with 5 models...\n');
 
-      const config = loadConfig();
-      const tracker = new TokenTracker('.llmapi_usage.json');
-      const executor = new ReviewExecutor(config, tracker);
+      const executor = createExecutor();
 
       const result = await executor.execute({
         content,
@@ -86,11 +104,6 @@ program
   .description('Show API cost summary')
   .option('-m, --month <month>', 'Month to report on (YYYY-MM)')
   .action((options) => {
-    const costManager = new CostManager({
-      trackingEnabled: true,
-      dailyThreshold: 10,
-    });
-
     if (options.month) {
       const report = costManager.getMonthlyReport(options.month);
       console.log('\n💰 MONTHLY COST REPORT');
@@ -125,13 +138,6 @@ program
   .description('Show cache statistics')
   .option('-c, --clear', 'Clear the cache')
   .action((options) => {
-    const cache = new CacheManager({
-      enabled: true,
-      ttl: 86400,
-      maxSize: 1000,
-      strategy: 'lru',
-    });
-
     if (options.clear) {
       cache.clear();
       console.log('✅ Cache cleared');
