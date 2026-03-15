@@ -23,6 +23,7 @@
     "test": "npm run build && node test/smoke.test.js",
     "test:integration": "npm run build && node test/integration.test.js",
     "test:all": "npm run build && node test/smoke.test.js && node test/integration.test.js",
+    "test:e2e": "npm run build && node test/e2e.test.mjs",
     "prepublishOnly": "npm run build",
     "inspect": "pkill -9 node; sleep 3; npx @modelcontextprotocol/inspector node dist/index.js",
     "serve": "node dist/index.js --mode http --port 6280",

@@ -132,11 +132,13 @@ assert(clearedStats.hits === 0, "Cache clear resets hit count");
 
 console.log("\n\u2500\u2500 CostManager \u2500\u2500\n");
 
-const costFile = path.join(__dirname, ".test_costs.json");
 const costMgr = new CostManager({
   trackingEnabled: true,
   dailyThreshold: 10,
 });
+
+// Reset to clear any persisted state from previous runs
+costMgr.reset();
 
 costMgr.trackUsage("openai", 1000, 500);
 const costStats = costMgr.getStats();
