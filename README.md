@@ -1,4 +1,4 @@
-# cross-review-mcp v0.6.2
+# cross-review-mcp v0.6.3
 
 **Get expert advice from 5 AI models at the same time.**
 
@@ -119,32 +119,53 @@ Per-model performance leaderboard from historical data:
 
 ---
 
-## What's New in v0.6.2
+## What's New in v0.6.3
 
-### Session ID Header Timing Fix
+### Comprehensive Query Logging
+**New in v0.6.3:** All queries and LLM responses are now logged for debugging and learning. This enables you to:
+- Understand which questions get the best results
+- Identify patterns in costs and latency
+- Debug failures by seeing exact inputs and outputs
+- Build ML datasets from real query data
+
+**Use cases:**
+- **Learning:** Analyze successful queries to understand what prompts work best
+- **Optimization:** Find which review types are most expensive and optimize accordingly
+- **Debugging:** When something fails, see the exact content, models used, and error
+- **Trending:** Track cost per review type, success rates, and model performance over time
+
+**Logging features:**
+- Structured JSON logs stored at `/var/log/llmapi-queries.log`
+- REST API endpoints for querying logs programmatically
+- Summary statistics for quick insights
+- Error logs for diagnosing failures
+
+### Previous v0.6.2 Features
+
+#### Session ID Header Timing Fix
 Fixed HTTP StreamableHTTPServerTransport to set session ID headers **before** `handleRequest()` is called. This ensures the client receives `x-mcp-session-id` in the initial response instead of after streaming begins.
 
 **Impact:** Enables proper HTTP MCP client integration (e.g., Claude Code with `"type": "http"`).
 
-### Remote HTTP Transport (Production Ready)
+#### Remote HTTP Transport (Production Ready)
 Cross-review MCP can now be deployed as a remote HTTP server with:
 - Systemd auto-restart on Linux
 - Live dashboard at `/` with SSE event streaming
 - MCP endpoint at `/mcp` supporting POST/GET/DELETE
 - Health check at `/health`
 
-### Previous v0.6.0 Features
+#### Previous v0.6.0 Features
 
-#### Semantic Consensus
+##### Semantic Consensus
 The consensus algorithm uses Jaccard similarity to cluster diagnoses that mean the same thing but are worded differently. "Port in use", "port occupied", and "port already taken" all cluster together instead of being counted as separate diagnoses.
 
-#### Per-Request Model Selection
+##### Per-Request Model Selection
 Control cost per request. A quick question doesn't need 5 models:
 ```json
 { "content": "simple question", "reviewType": "general", "models": "fast" }
 ```
 
-#### HTTP Authentication
+##### HTTP Authentication
 Secure the HTTP endpoint with a bearer token:
 ```bash
 node dist/index.js --mode http --auth-token my-secret
@@ -153,7 +174,7 @@ AUTH_TOKEN=my-secret npm run serve
 ```
 All routes require `Authorization: Bearer my-secret`. Dashboard accessible at `/?token=my-secret`. Health endpoint is always open.
 
-#### Health Check
+##### Health Check
 ```bash
 curl http://localhost:6280/health
 ```
@@ -162,12 +183,12 @@ curl http://localhost:6280/health
   "status": "ok",
   "uptime": 3600,
   "providers": { "openai": "up", "gemini": "up", "deepseek": "down" },
-  "version": "0.6.2"
+  "version": "0.6.3"
 }
 ```
 Use for Docker `HEALTHCHECK`, load balancers, monitoring.
 
-#### Config-Based Provider Costs
+##### Config-Based Provider Costs
 Provider pricing is now in `llmapi.config.json`, not hardcoded. Adding a new provider is zero-code:
 ```json
 {
@@ -229,9 +250,122 @@ Run in `http` or `both` mode, then open `http://localhost:6280`.
 | `/health` | GET | No | Health check (always open) |
 | `/api/stats` | GET | Yes | JSON stats |
 | `/api/events` | GET | Yes | SSE stream |
+| `/api/query-logs` | GET | Yes | Recent query logs (JSON) |
+| `/api/query-logs/summary` | GET | Yes | Query statistics (learning insights) |
+| `/api/query-logs/errors` | GET | Yes | Failed queries only |
 | `/mcp` | POST/GET/DELETE | Yes | MCP StreamableHTTP transport |
 
 *Dashboard also accepts `/?token=SECRET` query param.
+
+---
+
+## Query Logging
+
+All queries to the MCP server are logged for debugging and optimization. Logs are stored as JSON and accessible via REST API or file tail.
+
+### View Logs via REST API
+
+**Get 50 most recent queries:**
+```bash
+curl http://localhost:6280/api/query-logs | jq '.recent'
+```
+
+**Get 10 most recent queries:**
+```bash
+curl 'http://localhost:6280/api/query-logs?limit=10' | jq '.recent'
+```
+
+**Get summary statistics:**
+```bash
+curl http://localhost:6280/api/query-logs/summary | jq '.'
+```
+
+Output:
+```json
+{
+  "totalRequests": 156,
+  "successRate": 94.87,
+  "avgCost": 0.0182,
+  "avgLatencyMs": 3400,
+  "byReviewType": {
+    "security": 48,
+    "performance": 31,
+    "correctness": 42,
+    "style": 35
+  }
+}
+```
+
+**Get failed queries only:**
+```bash
+curl http://localhost:6280/api/query-logs/errors | jq '.recent'
+```
+
+### View Logs via SSH (Real-time Tail)
+
+**Live monitoring of all queries:**
+```bash
+ssh -i ~/.ssh/id_ed25519 your-server "tail -f /var/log/llmapi-queries.log | jq '.'"
+```
+
+**Filter by review type:**
+```bash
+ssh -i ~/.ssh/id_ed25519 your-server "cat /var/log/llmapi-queries.log | jq 'select(.reviewType == \"security\")'"
+```
+
+**Analyze failures:**
+```bash
+ssh -i ~/.ssh/id_ed25519 your-server "cat /var/log/llmapi-queries.log | jq 'select(.success == false) | {error, contentLength, models: .modelsRequested}'"
+```
+
+### Query Log Format
+
+Each query is logged as a JSON object:
+
+```json
+{
+  "timestamp": "2026-03-18T08:45:12.123Z",
+  "sessionId": "e4c4e1fb-2d8e-41b8-9f2d-4a9d8c3b6e2f",
+  "requestId": "req-12345",
+  "contentPreview": "def security_check(password): # First 200 chars of content...",
+  "contentLength": 5432,
+  "reviewType": "security",
+  "modelsRequested": ["openai", "gemini", "deepseek"],
+  "verdict": "3 models agree: Use bcrypt or argon2, never plain text",
+  "verdictSummary": "Password hashing algorithm detected as weak; recommend strong KDF",
+  "cost": 0.0182,
+  "latencyMs": 3200,
+  "success": true
+}
+```
+
+### Learning from Logs
+
+Use these insights to improve your review questions:
+
+**Identify cost patterns:**
+```bash
+# Which review types cost the most?
+cat /var/log/llmapi-queries.log | jq -r '.reviewType' | sort | uniq -c | sort -rn
+```
+
+**Find slow queries:**
+```bash
+# Show queries that took >5 seconds
+cat /var/log/llmapi-queries.log | jq 'select(.latencyMs > 5000) | {reviewType, latencyMs, contentLength}'
+```
+
+**Analyze success rates:**
+```bash
+# Success rate by review type
+cat /var/log/llmapi-queries.log | jq -r 'group_by(.reviewType) | map({type: .[0].reviewType, success_rate: (map(select(.success == true)) | length / length * 100)})'
+```
+
+**Find expensive models:**
+```bash
+# Average cost per model combination
+cat /var/log/llmapi-queries.log | jq -r '.modelsRequested | join(",")' | sort | uniq -c
+```
 
 ---
 
@@ -263,8 +397,10 @@ Type=simple
 User=your-user
 WorkingDirectory=/path/to/cross-review-mcp
 EnvironmentFile=/path/to/cross-review-mcp/.env
+ExecStartPre=/bin/bash -c "touch /var/log/llmapi-queries.log && chmod 666 /var/log/llmapi-queries.log"
 ExecStart=/usr/bin/node dist/index.js --mode http --port 6280 --host 0.0.0.0
 Restart=always
+Environment="LLMAPI_LOG_PATH=/var/log/llmapi-queries.log"
 
 [Install]
 WantedBy=multi-user.target
@@ -274,6 +410,9 @@ sudo systemctl enable --now cross-review-mcp
 
 # Verify it's running
 curl http://localhost:6280/health
+
+# Watch logs
+journalctl -u cross-review-mcp -f
 ```
 
 ### Step 2: Connect Claude Code (Direct HTTP)
@@ -372,6 +511,7 @@ Client (Claude Desktop / Claude Code / CLI / HTTP)
     -> Cache (LRU, disk persistence)
     -> Cost Manager (per-model tracking, daily alerts)
     -> EventBus -> Dashboard (SSE)
+    -> QueryLogger -> /var/log/llmapi-queries.log (for learning & debugging)
 ```
 
 All models execute in parallel. Same latency as asking 1 model, 5x the perspectives.

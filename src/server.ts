@@ -1,5 +1,6 @@
 // src/server.ts - Express HTTP server with MCP StreamableHTTP transport + dashboard
-// (v0.6.1, 2026-03-18) — Fix: Return sessionId to client so SSE can use it in subsequent requests
+// (v0.6.3, 2026-03-18) — Added comprehensive query logging for debugging and learning
+
 import express from 'express';
 import { randomUUID } from 'crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -8,6 +9,7 @@ import { eventBus } from './events.js';
 import { getDashboardHTML } from './dashboard.js';
 import { CacheManager } from './cache.js';
 import { CostManager } from './cost-manager.js';
+import { QueryLogger } from './query-logger.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export interface HTTPServerOptions {
@@ -25,6 +27,9 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
   const { port, host, cache, costManager, registerTools, authToken, providerIds, version } = options;
   const app = express();
 
+  // Initialize query logger
+  const queryLogger = new QueryLogger(eventBus);
+
   // Track active transports per session
   const transports = new Map<string, StreamableHTTPServerTransport>();
 
@@ -39,7 +44,7 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
       status: 'ok',
       uptime: Math.floor(eventBus.getUptimeMs() / 1000),
       providers,
-      version: version || '0.6.0',
+      version: version || '0.6.3',
       activeSessions: transports.size,
       totalRequests: eventBus.getTotalRequests(),
     });
@@ -49,9 +54,8 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
   if (authToken) {
     app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
       if (req.path === '/health') { next(); return; }
-
-      // Allow dashboard access with ?token= query param
       if (req.path === '/' && req.query.token === authToken) { next(); return; }
+      if (req.path.startsWith('/api/query-logs') && req.query.token === authToken) { next(); return; }
 
       const header = req.headers['authorization'];
       if (header === `Bearer ${authToken}`) { next(); return; }
@@ -98,6 +102,32 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
     });
   });
 
+  // Query Logs API — Recent queries for debugging
+  app.get('/api/query-logs', (req: express.Request, res: express.Response) => {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const logs = QueryLogger.readLogs();
+    res.json({
+      total: logs.length,
+      recent: logs.slice(-limit).reverse(), // Most recent first
+    });
+  });
+
+  // Query Logs Summary — Statistics for learning
+  app.get('/api/query-logs/summary', (_req: express.Request, res: express.Response) => {
+    const summary = QueryLogger.summary();
+    res.json(summary);
+  });
+
+  // Query Logs Errors — Failed queries for diagnosis
+  app.get('/api/query-logs/errors', (req: express.Request, res: express.Response) => {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const logs = QueryLogger.readLogs({ success: false });
+    res.json({
+      total: logs.length,
+      recent: logs.slice(-limit).reverse(), // Most recent failures first
+    });
+  });
+
   // SSE live events
   app.get('/api/events', (req: express.Request, res: express.Response) => {
     res.writeHead(200, {
@@ -127,7 +157,6 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
   app.get('/mcp', async (req: express.Request, res: express.Response) => {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
     if (sessionId && transports.has(sessionId)) {
-      // Disable timeouts to keep SSE stream alive
       req.socket.setTimeout(0);
       req.socket.setKeepAlive(true);
       const transport = transports.get(sessionId)!;
@@ -159,7 +188,7 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
     const incomingSessionId = req.headers['mcp-session-id'] as string | undefined;
 
     if (incomingSessionId && transports.has(incomingSessionId)) {
-      // Existing session
+      res.setHeader('Access-Control-Expose-Headers', 'x-mcp-session-id');
       const transport = transports.get(incomingSessionId)!;
       await transport.handleRequest(
         req as unknown as IncomingMessage,
@@ -169,36 +198,27 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
       return;
     }
 
-    // New session - generate session ID UPFRONT (v0.6.2 CRITICAL FIX)
     const newSessionId = randomUUID();
-
-    // SET HEADERS BEFORE handleRequest so client receives them in initial response
     res.setHeader('x-mcp-session-id', newSessionId);
     res.setHeader('Access-Control-Expose-Headers', 'x-mcp-session-id');
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    // Create transport with this session ID
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => newSessionId,
     });
 
     const server = new Server(
-      { name: 'cross-review-mcp', version: '0.6.0' },
+      { name: 'cross-review-mcp', version: '0.6.3' },
       { capabilities: { tools: {} } },
     );
 
     registerTools(server, cache, costManager);
     await server.connect(transport);
-
-    // Store transport immediately
     transports.set(newSessionId, transport);
-
-    // Setup cleanup
     transport.onclose = () => {
       transports.delete(newSessionId);
     };
 
-    // Handle the MCP request - headers are already set
     await transport.handleRequest(
       req as unknown as IncomingMessage,
       res as unknown as ServerResponse,
@@ -206,7 +226,7 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
     );
   });
 
-  // Catch-all: return JSON 404 for unknown routes (prevents HTML 404 confusing MCP clients)
+  // Catch-all: return JSON 404 for unknown routes
   app.use((_req: express.Request, res: express.Response) => {
     res.status(404).json({ error: 'Not found' });
   });
@@ -214,6 +234,7 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
   app.listen(port, host, () => {
     console.log(`Cross-Review MCP Dashboard: http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
     console.log(`MCP endpoint: http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/mcp`);
+    console.log(`Query logs: http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/api/query-logs`);
     console.log(`SSE events: http://${host === '0.0.0.0' ? 'localhost' : host}:${port}/api/events`);
   });
 }
