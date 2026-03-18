@@ -90,7 +90,7 @@ Input:  content + reviewType (security|performance|correctness|style|general)
 Output: Per-model reviews + consensus verdict
 ```
 
-**New in v0.6.0:** Optional `models` parameter for cost control:
+**New in v0.6.2:** Optional `models` parameter for cost control:
 - `"fast"` — cheapest 2 models
 - `"balanced"` — 3 models
 - `"thorough"` — all models (default)
@@ -119,18 +119,32 @@ Per-model performance leaderboard from historical data:
 
 ---
 
-## What's New in v0.6.0
+## What's New in v0.6.2
 
-### Semantic Consensus
-The consensus algorithm now uses Jaccard similarity to cluster diagnoses that mean the same thing but are worded differently. "Port in use", "port occupied", and "port already taken" all cluster together instead of being counted as separate diagnoses.
+### Session ID Header Timing Fix
+Fixed HTTP StreamableHTTPServerTransport to set session ID headers **before** `handleRequest()` is called. This ensures the client receives `x-mcp-session-id` in the initial response instead of after streaming begins.
 
-### Per-Request Model Selection
+**Impact:** Enables proper HTTP MCP client integration (e.g., Claude Code with `"type": "http"`).
+
+### Remote HTTP Transport (Production Ready)
+Cross-review MCP can now be deployed as a remote HTTP server with:
+- Systemd auto-restart on Linux
+- Live dashboard at `/` with SSE event streaming
+- MCP endpoint at `/mcp` supporting POST/GET/DELETE
+- Health check at `/health`
+
+### Previous v0.6.0 Features
+
+#### Semantic Consensus
+The consensus algorithm uses Jaccard similarity to cluster diagnoses that mean the same thing but are worded differently. "Port in use", "port occupied", and "port already taken" all cluster together instead of being counted as separate diagnoses.
+
+#### Per-Request Model Selection
 Control cost per request. A quick question doesn't need 5 models:
 ```json
 { "content": "simple question", "reviewType": "general", "models": "fast" }
 ```
 
-### HTTP Authentication
+#### HTTP Authentication
 Secure the HTTP endpoint with a bearer token:
 ```bash
 node dist/index.js --mode http --auth-token my-secret
@@ -139,7 +153,7 @@ AUTH_TOKEN=my-secret npm run serve
 ```
 All routes require `Authorization: Bearer my-secret`. Dashboard accessible at `/?token=my-secret`. Health endpoint is always open.
 
-### Health Check
+#### Health Check
 ```bash
 curl http://localhost:6280/health
 ```
@@ -148,12 +162,12 @@ curl http://localhost:6280/health
   "status": "ok",
   "uptime": 3600,
   "providers": { "openai": "up", "gemini": "up", "deepseek": "down" },
-  "version": "0.6.0"
+  "version": "0.6.2"
 }
 ```
 Use for Docker `HEALTHCHECK`, load balancers, monitoring.
 
-### Config-Based Provider Costs
+#### Config-Based Provider Costs
 Provider pricing is now in `llmapi.config.json`, not hardcoded. Adding a new provider is zero-code:
 ```json
 {
@@ -223,7 +237,7 @@ Run in `http` or `both` mode, then open `http://localhost:6280`.
 
 ## Remote Deployment
 
-> **Important:** Claude Desktop does not support `"url"` in `claude_desktop_config.json` for remote MCP servers. It requires a local `"command"` to launch. Use `mcp-remote` to bridge to a remote HTTP server.
+> **Important:** Claude Code supports `"type": "http"` for direct HTTP MCP servers. For Claude Desktop, use `mcp-remote` to bridge to a remote HTTP server.
 
 ### Step 1: Run the server on a remote machine
 
@@ -262,7 +276,20 @@ sudo systemctl enable --now cross-review-mcp
 curl http://localhost:6280/health
 ```
 
-### Step 2: Connect Claude Desktop via `mcp-remote`
+### Step 2: Connect Claude Code (Direct HTTP)
+
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "type": "http",
+      "url": "http://your-server:6280/mcp"
+    }
+  }
+}
+```
+
+### Step 2 (Alternative): Connect Claude Desktop via `mcp-remote`
 
 ```json
 {
@@ -285,6 +312,22 @@ curl http://localhost:6280/health
 # Or: node dist/index.js --mode http --auth-token my-secret
 ```
 
+**For Claude Code:**
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "type": "http",
+      "url": "http://your-server:6280/mcp",
+      "headers": {
+        "Authorization": "Bearer my-secret"
+      }
+    }
+  }
+}
+```
+
+**For Claude Desktop (via mcp-remote):**
 ```json
 {
   "mcpServers": {
@@ -321,7 +364,7 @@ The live dashboard is always available at `http://your-server:6280` when running
 ## Architecture
 
 ```
-Client (Claude Desktop / CLI / HTTP)
+Client (Claude Desktop / Claude Code / CLI / HTTP)
   -> MCP Server (stdio or StreamableHTTP)
     -> ReviewExecutor (model selection + parallel dispatch)
       -> [OpenAI | Gemini | DeepSeek | Mistral | OpenRouter]
