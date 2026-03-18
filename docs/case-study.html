@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cross-Review MCP: The LLM Blindness Problem</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.2em;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+            margin-bottom: 10px;
+        }
+
+        header .subtitle {
+            font-size: 0.95em;
+            opacity: 0.8;
+            font-style: italic;
+        }
+
+        .content {
+            padding: 50px 40px;
+        }
+
+        .section {
+            margin-bottom: 45px;
+        }
+
+        .section-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 50px;
+            font-weight: 700;
+            font-size: 1.5em;
+            margin-right: 15px;
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        h3 {
+            font-size: 1.3em;
+            color: #555;
+            margin: 20px 0 12px 0;
+            margin-top: 25px;
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: #444;
+            line-height: 1.8;
+        }
+
+        .quote {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-style: italic;
+            color: #555;
+        }
+
+        .verdict {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .verdict-title {
+            font-weight: 700;
+            color: #856404;
+            margin-bottom: 8px;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .success-title {
+            font-weight: 700;
+            color: #155724;
+            margin-bottom: 8px;
+        }
+
+        .highlight {
+            background: linear-gradient(120deg, #ffd89b 0%, #19547b 100%);
+            background-size: 100% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+
+        .insight {
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            padding: 30px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+
+        .insight h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .step-list {
+            list-style: none;
+            counter-reset: step;
+        }
+
+        .step-list li {
+            counter-increment: step;
+            margin: 15px 0;
+            padding-left: 50px;
+            position: relative;
+            line-height: 1.8;
+        }
+
+        .step-list li:before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #667eea;
+            color: white;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 38px;
+            font-weight: 700;
+            font-size: 0.9em;
+        }
+
+        footer {
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            padding: 30px 40px;
+            text-align: center;
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 32px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            header {
+                padding: 40px 20px;
+            }
+
+            header h1 {
+                font-size: 1.6em;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+
+            h2 {
+                font-size: 1.4em;
+            }
+
+            .section-number {
+                width: 40px;
+                height: 40px;
+                line-height: 40px;
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Cross-Review MCP in Practice</h1>
+            <p>How adversarial multi-model review catches bugs that single-model analysis misses</p>
+            <p class="subtitle">A real-world case study from March 2026</p>
+        </header>
+
+        <div class="content">
+            <!-- Section 1 -->
+            <div class="section">
+                <h2><span class="section-number">1</span>User Question</h2>
+                <p>A developer notices strange errors appearing repeatedly in their Claude Desktop logs:</p>
+                <div class="quote">
+                    Error: SSE stream disconnected: TypeError: terminated<br>
+                    Error: SSE stream disconnected: TypeError: terminated<br>
+                    Error: SSE stream disconnected: TypeError: terminated<br>
+                    ... (hundreds of repeating errors after every tool call)
+                </div>
+                <p>The question: <strong>"Is this something we should take a closer look at on code level, or are these some old noise?"</strong></p>
+            </div>
+
+            <!-- Section 2 -->
+            <div class="section">
+                <h2><span class="section-number">2</span>Claude's Initial Assessment — Misdiagnosis</h2>
+                <div class="verdict">
+                    <div class="verdict-title">Verdict: "Not a bug in your server code."</div>
+                    <p>"Your server's StreamableHTTP handling is correct — it follows the standard MCP SDK pattern. The errors come from mcp-remote, not your server. This is a known rough edge in the mcp-remote bridge — it aggressively reconnects SSE streams rather than backing off."</p>
+                </div>
+                <p><strong>Conclusion (wrong):</strong> Noise from mcp-remote, not actionable on your side.</p>
+                <p>A single LLM confidently defending its own code. This is the core of the <span class="highlight">LLM blindness problem</span> — an AI has inherent blind spots and will rationalize them.</p>
+            </div>
+
+            <!-- Section 3 -->
+            <div class="section">
+                <h2><span class="section-number">3</span>User Leverages Cross-Review MCP</h2>
+                <p>The developer decides to test the hypothesis:</p>
+                <p><strong>"Why don't we do cross-review on this one and then we might know?"</strong></p>
+                <p>They invoke the cross-review MCP tool, submitting:</p>
+                <ul class="step-list">
+                    <li>The server code (StreamableHTTP handler)</li>
+                    <li>The error logs (hundreds of disconnects)</li>
+                    <li>The question: "What's causing the SSE stream disconnects?"</li>
+                </ul>
+                <p>The tool dispatches the code and logs to <strong>GPT-4</strong>, <strong>Gemini 2.0</strong>, and other models independently, in parallel.</p>
+            </div>
+
+            <!-- Section 4 -->
+            <div class="section">
+                <h2><span class="section-number">4</span>Multi-Model Consensus — Bug Found</h2>
+                <p>Within seconds, independent analyses converge:</p>
+
+                <h3>🔴 OpenAI (GPT-4):</h3>
+                <div class="quote">
+                    "The biggest red flag is routing all methods through <code>app.all('/mcp')</code>. If you use <code>express.json()</code> globally, it runs for GET too — for SSE endpoints it's best to exclude them from body parsing. Also: disable socket timeouts for GET /mcp with <code>req.socket.setTimeout(0)</code>."
+                </div>
+
+                <h3>🟦 Gemini 2.0:</h3>
+                <div class="quote">
+                    "The code doesn't explicitly set SSE headers. Without these, the client won't treat the connection as an SSE stream. The <code>transport.onclose</code> handler is also problematic — rapid deletion and re-creation contributes to the disconnect flood."
+                </div>
+
+                <h3>✅ Consensus:</h3>
+                <div class="success">
+                    <div class="success-title">Three actionable server-side fixes identified:</div>
+                    <ol>
+                        <li><strong>Split route handlers:</strong> Apply <code>express.json()</code> only to POST, not GET</li>
+                        <li><strong>Disable timeouts on SSE:</strong> <code>req.socket.setTimeout(0)</code> for streaming responses</li>
+                        <li><strong>Set SSE headers explicitly:</strong> Content-Type, Cache-Control, Connection headers</li>
+                    </ol>
+                </div>
+                <p><strong>Key insight:</strong> Both GPT and Gemini converged on the same root cause — something a single model confidently dismissed.</p>
+            </div>
+
+            <!-- Section 5 -->
+            <div class="section">
+                <h2><span class="section-number">5</span>Claude Corrects Course — Applies Fixes</h2>
+                <p>The developer (with Claude) now has consensus. Claude applies all three fixes:</p>
+
+                <h3>Fix 1: Split middleware (POST only)</h3>
+                <div class="quote">
+                    <code>app.post('/mcp', express.json(), mcp_handler);</code><br>
+                    <code>app.get('/mcp', mcp_handler);</code>
+                </div>
+
+                <h3>Fix 2: Disable timeouts on GET</h3>
+                <div class="quote">
+                    <code>req.socket.setTimeout(0); // Disable timeout for SSE streams</code>
+                </div>
+
+                <h3>Fix 3: Explicit SSE headers</h3>
+                <div class="quote">
+                    <code>res.setHeader('Content-Type', 'text/event-stream');</code><br>
+                    <code>res.setHeader('Cache-Control', 'no-cache');</code><br>
+                    <code>res.setHeader('Connection', 'keep-alive');</code>
+                </div>
+
+                <p><strong>Testing:</strong> 102 tests pass. The errors vanish. Linux production server is updated.</p>
+                <p><strong>All within the same session.</strong></p>
+            </div>
+
+            <!-- The Bigger Picture -->
+            <div class="section">
+                <div class="insight">
+                    <h3>🧠 The Bigger Picture — Self-Correcting AI</h3>
+                    <p>What actually happened here is remarkable:</p>
+                    <ul class="step-list">
+                        <li><strong>Self-diagnosis:</strong> The MCP tool analyzed its own server code and found bugs in itself.</li>
+                        <li><strong>Self-correction:</strong> Multiple independent models identified the same root cause, breaking the single model's echo chamber.</li>
+                        <li><strong>Self-validation:</strong> 102 tests confirmed the fix. Production was updated live.</li>
+                    </ul>
+                    <p style="margin-top: 20px;"><strong>This is not just "getting a second opinion."</strong></p>
+                    <p>This is a <strong>closed-loop self-healing workflow:</strong> software that can identify its own blind spots by consulting independent reasoning engines, then act on the consensus without human intervention beyond the initial prompt.</p>
+                </div>
+            </div>
+
+            <!-- Conclusion -->
+            <div class="section">
+                <h2>Why This Matters</h2>
+                <p>A <strong>single model has inherent blind spots</strong> — it will confidently defend its own code, rationalize errors, and miss bugs that are obvious to another perspective.</p>
+                <p><strong>Multiple adversarial models break that echo chamber.</strong></p>
+                <p>The result: <strong>Bugs found in seconds that would otherwise ship to production as "not our problem."</strong></p>
+
+                <h3>When to Use Cross-Review</h3>
+                <ul class="step-list">
+                    <li>A single LLM confidently gives you an answer you're not sure about</li>
+                    <li>You need security review before deployment</li>
+                    <li>You want to understand performance implications before shipping</li>
+                    <li>You're debugging something and one model's explanation doesn't feel right</li>
+                    <li>You need consensus on architectural decisions</li>
+                </ul>
+
+                <p style="margin-top: 30px;">
+                    <a href="https://github.com/KEIJOT/cross-review-mcp" class="cta-button">🔧 Get Cross-Review MCP on GitHub</a>
+                </p>
+            </div>
+        </div>
+
+        <footer>
+            <p><strong>Cross-Review MCP</strong> — Adversarial multi-model code review as an MCP tool</p>
+            <p style="margin-top: 15px;">
+                <a href="https://github.com/KEIJOT/cross-review-mcp">GitHub</a> • 
+                <a href="https://keijot.github.io/cross-review-mcp/">Docs</a> • 
+                <a href="https://www.npmjs.com/package/cross-review-mcp">npm</a>
+            </p>
+            <p style="margin-top: 15px; color: #999; font-size: 0.9em;">Published March 2026</p>
+        </footer>
+    </div>
+</body>
+</html>
