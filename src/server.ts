@@ -1,4 +1,5 @@
 // src/server.ts - Express HTTP server with MCP StreamableHTTP transport + dashboard
+// (v0.6.1, 2026-03-18) — Fix: Return sessionId to client so SSE can use it in subsequent requests
 import express from 'express';
 import { randomUUID } from 'crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -55,7 +56,9 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
       const header = req.headers['authorization'];
       if (header === `Bearer ${authToken}`) { next(); return; }
 
-      res.status(401).json({ error: 'Unauthorized. Provide Authorization: Bearer <token> header.' });
+      res.status(401)
+        .header('WWW-Authenticate', 'Bearer realm="cross-review-mcp"')
+        .json({ error: 'Unauthorized. Provide Authorization: Bearer <token> header.' });
     });
   }
 
@@ -153,11 +156,11 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
 
   // MCP StreamableHTTP — POST handles initialization and tool calls
   app.post('/mcp', async (req: express.Request, res: express.Response) => {
-    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    const incomingSessionId = req.headers['mcp-session-id'] as string | undefined;
 
-    if (sessionId && transports.has(sessionId)) {
+    if (incomingSessionId && transports.has(incomingSessionId)) {
       // Existing session
-      const transport = transports.get(sessionId)!;
+      const transport = transports.get(incomingSessionId)!;
       await transport.handleRequest(
         req as unknown as IncomingMessage,
         res as unknown as ServerResponse,
@@ -166,9 +169,17 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
       return;
     }
 
-    // New session - create transport + server
+    // New session - generate session ID UPFRONT (v0.6.2 CRITICAL FIX)
+    const newSessionId = randomUUID();
+
+    // SET HEADERS BEFORE handleRequest so client receives them in initial response
+    res.setHeader('x-mcp-session-id', newSessionId);
+    res.setHeader('Access-Control-Expose-Headers', 'x-mcp-session-id');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Create transport with this session ID
     const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
+      sessionIdGenerator: () => newSessionId,
     });
 
     const server = new Server(
@@ -179,24 +190,25 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
     registerTools(server, cache, costManager);
     await server.connect(transport);
 
-    // Store by session ID once assigned
+    // Store transport immediately
+    transports.set(newSessionId, transport);
+
+    // Setup cleanup
     transport.onclose = () => {
-      if (transport.sessionId) {
-        transports.delete(transport.sessionId);
-      }
+      transports.delete(newSessionId);
     };
 
-    // Handle the initialization request
+    // Handle the MCP request - headers are already set
     await transport.handleRequest(
       req as unknown as IncomingMessage,
       res as unknown as ServerResponse,
       req.body,
     );
+  });
 
-    // After handling, the transport has a session ID
-    if (transport.sessionId) {
-      transports.set(transport.sessionId, transport);
-    }
+  // Catch-all: return JSON 404 for unknown routes (prevents HTML 404 confusing MCP clients)
+  app.use((_req: express.Request, res: express.Response) => {
+    res.status(404).json({ error: 'Not found' });
   });
 
   app.listen(port, host, () => {
