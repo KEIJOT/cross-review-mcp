@@ -1,3 +1,10 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [0.6.2] — 2026-03-18
 
 ### Changed
@@ -12,27 +19,6 @@
 ### Deployed
 - Linux systemd service created and auto-restart enabled
 - Production endpoint: http://51.15.218.196:6280/mcp
-
-
-### Changed
-- Fixed session ID header timing for HTTP StreamableHTTPServerTransport
-- Changed MCP client config from "type": "sse" to "type": "http"
-- Added JSON error response for unknown routes
-
-### Fixed
-- Session ID not returned to client in initial POST /mcp response
-- Client could not establish SSE stream due to missing session ID in headers
-
-### Deployed
-- Linux systemd service created and auto-restart enabled
-- Production endpoint: http://51.15.218.196:6280/mcp
-
-
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.6.0] — 2026-03-15
 
@@ -115,4 +101,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consensus building across reviewers
 - Adversarial prompt templates
 - Token usage tracking
-
