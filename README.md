@@ -1,4 +1,4 @@
-# cross-review-mcp v0.6.3
+# cross-review-mcp v0.7.0
 
 **Get expert advice from 5 AI models at the same time.**
 
@@ -117,12 +117,85 @@ Per-model performance leaderboard from historical data:
 - Reliability score (0-100) combining success rate, latency, and output quality
 - Models ranked by reliability
 
+### `search_models`
+Search OpenRouter's catalog of 300+ LLM models. Find free alternatives, compare context lengths.
+
+```
+Input:  query (optional), freeOnly, minContextLength, maxResults
+Output: Model IDs, names, context lengths, pricing, free status
+```
+
+### `test_model`
+Probe any model with a test request. Returns latency, tokens, and actual response content.
+
+```
+Input:  modelId (e.g., "nvidia/nemotron-3-super-120b-a12b:free")
+Output: success, content, inputTokens, outputTokens, latencyMs
+```
+
+### `swap_model`
+Replace a reviewer's model in the config. Tests the new model first, then updates `llmapi.config.json`.
+
+```
+Input:  reviewerId, newModelId, newName (optional), baseUrl (optional)
+Output: success, oldModel, newModel, message
+```
+
+### `find_replacement`
+Automatically search, test, and recommend replacement models for a failing provider. Tests multiple candidates in parallel and ranks by reliability and speed.
+
+```
+Input:  reviewerId, freeOnly (default: true), maxCandidates (default: 5)
+Output: Tested candidates ranked by success + speed, with recommendation
+```
+
+See [Model Discovery Guide](docs/model-discovery.md) for detailed workflows.
+
 ---
 
-## What's New in v0.6.3
+## What's New in v0.7.0
+
+### Model Discovery & Hot-Swap
+**New in v0.7.0:** 4 new MCP tools let you search, test, and swap LLM providers without editing config files. When a provider runs out of credits or goes down, find a replacement in seconds:
+
+```
+You:  "My DeepSeek provider is returning empty responses"
+ -> search_models({ freeOnly: true })           # browse 27 free models
+ -> test_model({ modelId: "nvidia/..." })        # verify it works
+ -> swap_model({ reviewerId: "deepseek", ... })  # swap it in, config updated
+```
+
+Or let the system do it automatically:
+```
+find_replacement({ reviewerId: "deepseek" })
+ -> Tests 5 free candidates in parallel
+ -> Recommends the fastest reliable one
+```
+
+### Zero-Token Detection & Retry
+Models that return HTTP 200 but with empty content (a common issue with free-tier rate limiting) are now:
+1. Detected immediately (not counted as "success")
+2. Retried once with a 2-second delay
+3. Marked as failure if still empty — so consensus is built from real responses only
+
+### `apiKeyEnv` Config Override
+Multiple reviewers can now share one API key. Useful when routing through OpenRouter:
+```json
+{
+  "id": "nemotron",
+  "model": "nvidia/nemotron-3-super-120b-a12b:free",
+  "baseUrl": "https://openrouter.ai/api/v1",
+  "apiKeyEnv": "OPENROUTER_API_KEY"
+}
+```
+
+### Enriched Query Logs
+Query logs now include `verdict`, `verdictSummary`, `cacheHit`, per-model `modelResults`, and real session IDs. New endpoint: `GET /api/query-logs/models` for per-model success rates and latency.
+
+### Previous v0.6.3 Features
 
 ### Comprehensive Query Logging
-**New in v0.6.3:** All queries and LLM responses are now logged for debugging and learning. This enables you to:
+All queries and LLM responses are now logged for debugging and learning. This enables you to:
 - Understand which questions get the best results
 - Identify patterns in costs and latency
 - Debug failures by seeing exact inputs and outputs
@@ -252,6 +325,7 @@ Run in `http` or `both` mode, then open `http://localhost:6280`.
 | `/api/events` | GET | Yes | SSE stream |
 | `/api/query-logs` | GET | Yes | Recent query logs (JSON) |
 | `/api/query-logs/summary` | GET | Yes | Query statistics (learning insights) |
+| `/api/query-logs/models` | GET | Yes | Per-model success rate, avg latency, tokens |
 | `/api/query-logs/errors` | GET | Yes | Failed queries only |
 | `/mcp` | POST/GET/DELETE | Yes | MCP StreamableHTTP transport |
 
@@ -324,17 +398,23 @@ Each query is logged as a JSON object:
 
 ```json
 {
-  "timestamp": "2026-03-18T08:45:12.123Z",
+  "timestamp": "2026-03-19T08:45:12.123Z",
   "sessionId": "e4c4e1fb-2d8e-41b8-9f2d-4a9d8c3b6e2f",
   "requestId": "req-12345",
   "contentPreview": "def security_check(password): # First 200 chars of content...",
   "contentLength": 5432,
   "reviewType": "security",
-  "modelsRequested": ["openai", "gemini", "deepseek"],
-  "verdict": "3 models agree: Use bcrypt or argon2, never plain text",
-  "verdictSummary": "Password hashing algorithm detected as weak; recommend strong KDF",
+  "modelsRequested": ["openai", "gemini", "nemotron"],
+  "verdict": "3/3 models completed successfully",
+  "verdictSummary": "openai: Use bcrypt... | gemini: Switch to argon2... | nemotron: Never store plain...",
   "cost": 0.0182,
   "latencyMs": 3200,
+  "cacheHit": false,
+  "modelResults": [
+    { "id": "openai", "success": true, "inputTokens": 500, "outputTokens": 200, "latencyMs": 1200 },
+    { "id": "gemini", "success": true, "inputTokens": 480, "outputTokens": 180, "latencyMs": 800 },
+    { "id": "nemotron", "success": true, "inputTokens": 510, "outputTokens": 220, "latencyMs": 2100 }
+  ],
   "success": true
 }
 ```
@@ -529,20 +609,20 @@ Reviewers, costs, and execution strategy are configured here:
   "reviewers": [
     { "id": "openai", "provider": "openai", "model": "gpt-5.2" },
     { "id": "gemini", "provider": "gemini", "model": "gemini-2.0-flash" },
-    { "id": "deepseek", "provider": "openai-compatible", "model": "deepseek-chat", "baseUrl": "https://api.deepseek.com/v1" }
+    { "id": "nemotron", "provider": "openai-compatible", "model": "nvidia/nemotron-3-super-120b-a12b:free", "baseUrl": "https://openrouter.ai/api/v1", "apiKeyEnv": "OPENROUTER_API_KEY" }
   ],
   "costs": {
     "models": {
       "openai": { "input_per_1m": 3, "output_per_1m": 15 },
       "gemini": { "input_per_1m": 0.075, "output_per_1m": 0.3 },
-      "deepseek": { "input_per_1m": 1.4, "output_per_1m": 4.2 }
+      "nemotron": { "input_per_1m": 0, "output_per_1m": 0 }
     }
   },
   "execution": { "strategy": "wait_all" }
 }
 ```
 
-API keys are loaded from environment variables: `{REVIEWER_ID}_API_KEY` (e.g., `OPENAI_API_KEY`).
+API keys are loaded from environment variables: `{REVIEWER_ID}_API_KEY` (e.g., `OPENAI_API_KEY`). Use `apiKeyEnv` to override the env var name (e.g., share one OpenRouter key across multiple reviewers).
 
 ### Provider Types
 

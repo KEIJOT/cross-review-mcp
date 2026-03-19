@@ -12,6 +12,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   private model: string;
   private apiKey: string;
   private baseUrl: string;
+  private isNativeOpenAI: boolean;
 
   constructor(config: ReviewerConfig, apiKey: string) {
     this.id = config.id;
@@ -19,17 +20,26 @@ export class OpenAICompatibleProvider implements LLMProvider {
     this.model = config.model;
     this.apiKey = apiKey;
     this.baseUrl = config.baseUrl || 'https://api.openai.com/v1';
+    // Only native OpenAI supports max_completion_tokens; compatible APIs use max_tokens
+    this.isNativeOpenAI = this.baseUrl.includes('api.openai.com');
   }
 
   async sendRequest(content: string, system?: string): Promise<LLMResponse> {
     const startTime = Date.now();
     try {
+      // Build headers — OpenRouter requires HTTP-Referer for routing
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      };
+      if (this.baseUrl.includes('openrouter.ai')) {
+        headers['HTTP-Referer'] = 'https://github.com/cross-review-mcp';
+        headers['X-Title'] = 'Cross-Review MCP';
+      }
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
+        headers,
         body: JSON.stringify({
           model: this.model,
           messages: [
@@ -37,7 +47,10 @@ export class OpenAICompatibleProvider implements LLMProvider {
             { role: 'user', content },
           ],
           temperature: 0.7,
-          max_completion_tokens: 2000,
+          // OpenAI uses max_completion_tokens; compatible APIs use max_tokens
+          ...(this.isNativeOpenAI
+            ? { max_completion_tokens: 2000 }
+            : { max_tokens: 2000 }),
         }),
       });
 
@@ -51,17 +64,19 @@ export class OpenAICompatibleProvider implements LLMProvider {
           inputTokens: 0,
           outputTokens: 0,
           finishReason: 'error',
-          error: data.error?.message || 'Unknown API error',
+          error: data.error?.message || `API error (HTTP ${response.status})`,
           executionTimeMs,
         };
       }
 
-      const choice = data.choices[0];
+      const choice = data.choices?.[0];
+      const messageContent = choice?.message?.content || '';
+      const usage = data.usage || {};
       return {
         modelId: this.id,
-        content: choice.message.content,
-        inputTokens: data.usage.prompt_tokens,
-        outputTokens: data.usage.completion_tokens,
+        content: messageContent,
+        inputTokens: usage.prompt_tokens || 0,
+        outputTokens: usage.completion_tokens || 0,
         finishReason: 'stop',
         executionTimeMs,
       };

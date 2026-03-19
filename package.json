@@ -1,6 +1,6 @@
 {
   "name": "cross-review-mcp",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "Cross-LLM consensus for development blockers - Get guidance from 5 AI models simultaneously",
   "type": "module",
   "main": "dist/index.js",

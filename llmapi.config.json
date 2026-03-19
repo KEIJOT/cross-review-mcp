@@ -17,11 +17,12 @@
       "execution_order": 2
     },
     {
-      "id": "deepseek",
-      "name": "DeepSeek",
+      "id": "nemotron",
+      "name": "Nemotron Super 120B",
       "provider": "openai-compatible",
-      "model": "deepseek-chat",
-      "baseUrl": "https://api.deepseek.com/v1",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
       "timeout_ms": 30000,
       "execution_order": 3
     },
@@ -36,9 +37,9 @@
     },
     {
       "id": "openrouter",
-      "name": "OpenRouter",
+      "name": "OpenRouter Free",
       "provider": "openai-compatible",
-      "model": "meta-llama/llama-3.1-70b-instruct",
+      "model": "openrouter/free",
       "baseUrl": "https://openrouter.ai/api/v1",
       "timeout_ms": 30000,
       "execution_order": 5
@@ -58,17 +59,17 @@
         "input_per_1m": 0.075,
         "output_per_1m": 0.3
       },
-      "deepseek": {
-        "input_per_1m": 1.4,
-        "output_per_1m": 4.2
+      "nemotron": {
+        "input_per_1m": 0,
+        "output_per_1m": 0
       },
       "mistral": {
         "input_per_1m": 2,
         "output_per_1m": 6
       },
       "openrouter": {
-        "input_per_1m": 0.8,
-        "output_per_1m": 0.8
+        "input_per_1m": 0,
+        "output_per_1m": 0
       }
     }
   },

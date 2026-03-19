@@ -6,8 +6,10 @@ export interface RequestStartEvent {
   requestId: string;
   timestamp: string;
   contentLength: number;
+  contentPreview: string;
   type: string;
   models: string[];
+  sessionId?: string;
 }
 
 export interface ModelCompleteEvent {
@@ -21,6 +23,15 @@ export interface ModelCompleteEvent {
   error?: string;
 }
 
+export interface ModelResultSummary {
+  id: string;
+  success: boolean;
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number;
+  error?: string;
+}
+
 export interface RequestCompleteEvent {
   requestId: string;
   timestamp: string;
@@ -28,6 +39,10 @@ export interface RequestCompleteEvent {
   totalCost: number;
   modelCount: number;
   successCount: number;
+  cacheHit?: boolean;
+  verdict?: string;
+  verdictSummary?: string;
+  modelResults?: ModelResultSummary[];
 }
 
 export interface DashboardRequest {

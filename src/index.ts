@@ -30,6 +30,7 @@ import { CostManager } from './cost-manager.js';
 import { analyzeDevelopmentProblem } from './dev-guidance.js';
 import { configureLogger } from './logger.js';
 import { buildModelBenchmark } from './benchmark.js';
+import { searchModels, testModel, swapModel, findReplacement } from './model-discovery.js';
 
 // Re-export library components for NPM usage
 export { ReviewExecutor } from './executor.js';
@@ -71,7 +72,7 @@ async function getExecutor() {
  * Register all MCP tools on a Server instance.
  * Extracted so both stdio and HTTP transports can share tool definitions.
  */
-export function registerTools(server: Server, cache: CacheManager, costManager: CostManager): void {
+export function registerTools(server: Server, cache: CacheManager, costManager: CostManager, sessionId?: string): void {
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
       tools: [
@@ -155,6 +156,60 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
           description: 'Get per-model performance benchmarks: avg latency, error rate, tokens/request, cost efficiency, and reliability ranking',
           inputSchema: { type: 'object' as const, properties: {} },
         },
+        {
+          name: 'search_models',
+          description: 'Search available LLM models on OpenRouter. Find free alternatives, compare context lengths, and discover new models.',
+          inputSchema: {
+            type: 'object' as const,
+            properties: {
+              query: { type: 'string', description: 'Search query (e.g., "llama", "mistral", "coding", "free")' },
+              freeOnly: { type: 'boolean', description: 'Only show free models (default: false)' },
+              minContextLength: { type: 'number', description: 'Minimum context window size (default: 0)' },
+              maxResults: { type: 'number', description: 'Max results to return (default: 20)' },
+            },
+          },
+        },
+        {
+          name: 'test_model',
+          description: 'Test a specific model by sending a probe request. Returns latency, token counts, and response content.',
+          inputSchema: {
+            type: 'object' as const,
+            properties: {
+              modelId: { type: 'string', description: 'Model ID to test (e.g., "openai/gpt-oss-120b:free")' },
+              baseUrl: { type: 'string', description: 'API base URL (default: OpenRouter)' },
+            },
+            required: ['modelId'],
+          },
+        },
+        {
+          name: 'swap_model',
+          description: 'Replace a reviewer\'s model in the config. Tests the new model first, then updates llmapi.config.json.',
+          inputSchema: {
+            type: 'object' as const,
+            properties: {
+              reviewerId: { type: 'string', description: 'ID of the reviewer slot to update (e.g., "openrouter", "nemotron")' },
+              newModelId: { type: 'string', description: 'New model ID (e.g., "nvidia/nemotron-3-super-120b-a12b:free")' },
+              newName: { type: 'string', description: 'Optional display name for the reviewer' },
+              baseUrl: { type: 'string', description: 'API base URL (default: OpenRouter)' },
+              skipTest: { type: 'boolean', description: 'Skip the pre-swap test (default: false)' },
+            },
+            required: ['reviewerId', 'newModelId'],
+          },
+        },
+        {
+          name: 'find_replacement',
+          description: 'Automatically search, test, and recommend replacement models for a failing reviewer. Tests multiple candidates and ranks by reliability and speed.',
+          inputSchema: {
+            type: 'object' as const,
+            properties: {
+              reviewerId: { type: 'string', description: 'ID of the reviewer to find a replacement for' },
+              freeOnly: { type: 'boolean', description: 'Only consider free models (default: true)' },
+              minContextLength: { type: 'number', description: 'Minimum context window (default: 32000)' },
+              maxCandidates: { type: 'number', description: 'Number of models to test (default: 5)' },
+            },
+            required: ['reviewerId'],
+          },
+        },
       ],
     };
   });
@@ -170,6 +225,7 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
             content: args?.content as string,
             type: args?.reviewType as any,
             models: args?.models as string | string[] | undefined,
+            sessionId,
           });
           return {
             content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
@@ -234,6 +290,79 @@ export function registerTools(server: Server, cache: CacheManager, costManager: 
           const benchmark = buildModelBenchmark(costManager);
           return {
             content: [{ type: 'text', text: JSON.stringify(benchmark, null, 2) }],
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: 'text', text: `Error: ${error.message}` }],
+          };
+        }
+
+      case 'search_models':
+        try {
+          const models = await searchModels({
+            query: args?.query as string | undefined,
+            freeOnly: args?.freeOnly as boolean | undefined,
+            minContextLength: args?.minContextLength as number | undefined,
+            maxResults: args?.maxResults as number | undefined,
+          });
+          return {
+            content: [{ type: 'text', text: JSON.stringify({ count: models.length, models }, null, 2) }],
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: 'text', text: `Error: ${error.message}` }],
+          };
+        }
+
+      case 'test_model':
+        try {
+          const apiKey = process.env.OPENROUTER_API_KEY || '';
+          const result = await testModel(
+            args?.modelId as string,
+            apiKey,
+            args?.baseUrl as string | undefined,
+          );
+          return {
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: 'text', text: `Error: ${error.message}` }],
+          };
+        }
+
+      case 'swap_model':
+        try {
+          const result = await swapModel(
+            args?.reviewerId as string,
+            args?.newModelId as string,
+            {
+              testFirst: !(args?.skipTest as boolean),
+              baseUrl: args?.baseUrl as string | undefined,
+              newName: args?.newName as string | undefined,
+            },
+          );
+          return {
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          };
+        } catch (error: any) {
+          return {
+            content: [{ type: 'text', text: `Error: ${error.message}` }],
+          };
+        }
+
+      case 'find_replacement':
+        try {
+          const result = await findReplacement(
+            args?.reviewerId as string,
+            {
+              freeOnly: args?.freeOnly as boolean | undefined,
+              minContextLength: args?.minContextLength as number | undefined,
+              maxCandidates: args?.maxCandidates as number | undefined,
+            },
+          );
+          return {
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
           };
         } catch (error: any) {
           return {
@@ -332,6 +461,7 @@ async function startMCPServer() {
         registerTools,
         authToken,
         providerIds: config.reviewers.map(r => r.id),
+        reviewerConfigs: config.reviewers.map(r => ({ id: r.id, apiKeyEnv: r.apiKeyEnv })),
         version: '0.6.0',
       });
     }

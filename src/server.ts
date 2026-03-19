@@ -17,9 +17,10 @@ export interface HTTPServerOptions {
   host: string;
   cache: CacheManager;
   costManager: CostManager;
-  registerTools: (server: Server, cache: CacheManager, costManager: CostManager) => void;
+  registerTools: (server: Server, cache: CacheManager, costManager: CostManager, sessionId?: string) => void;
   authToken?: string;
   providerIds?: string[];
+  reviewerConfigs?: Array<{ id: string; apiKeyEnv?: string }>;
   version?: string;
 }
 
@@ -37,7 +38,9 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
   app.get('/health', (_req: express.Request, res: express.Response) => {
     const providers: Record<string, string> = {};
     for (const id of (providerIds || [])) {
-      const envKey = `${id.toUpperCase()}_API_KEY`;
+      // Check apiKeyEnv from config, fall back to ${ID}_API_KEY convention
+      const reviewer = options.reviewerConfigs?.find((r: any) => r.id === id);
+      const envKey = reviewer?.apiKeyEnv || `${id.toUpperCase()}_API_KEY`;
       providers[id] = process.env[envKey] ? 'up' : 'down';
     }
     res.json({
@@ -116,6 +119,12 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
   app.get('/api/query-logs/summary', (_req: express.Request, res: express.Response) => {
     const summary = QueryLogger.summary();
     res.json(summary);
+  });
+
+  // Query Logs Per-Model Stats — Success rate, avg latency, avg tokens per model
+  app.get('/api/query-logs/models', (_req: express.Request, res: express.Response) => {
+    const modelStats = QueryLogger.modelStats();
+    res.json(modelStats);
   });
 
   // Query Logs Errors — Failed queries for diagnosis
@@ -212,7 +221,7 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
       { capabilities: { tools: {} } },
     );
 
-    registerTools(server, cache, costManager);
+    registerTools(server, cache, costManager, newSessionId);
     await server.connect(transport);
     transports.set(newSessionId, transport);
     transport.onclose = () => {

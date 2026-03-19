@@ -20,6 +20,7 @@ export interface ReviewRequest {
   contentHash?: string;
   strategy?: string;
   models?: string | string[];  // Preset name ('fast'|'balanced'|'thorough') or array of model IDs
+  sessionId?: string;
 }
 
 export interface ReviewResult {

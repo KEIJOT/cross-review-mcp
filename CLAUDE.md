@@ -20,8 +20,9 @@ npm run inspect        # MCP protocol inspector/debugger
 
 Live API tests (require API keys in `.env`):
 ```bash
-node test/test-live.mjs      # end-to-end with real API calls
-node test/test-single.mjs    # single reviewer test
+node test/test-providers.mjs # test all 5 providers via ReviewExecutor (current architecture)
+node test/test-live.mjs      # end-to-end with real API calls (legacy engine.js)
+node test/test-single.mjs    # single reviewer test (legacy engine.js)
 node test/test-keys.mjs      # validate API key configuration
 ```
 
@@ -41,6 +42,8 @@ Core source files in `src/`:
 - **`src/cache.ts`** — LRU cache with TTL, disk persistence.
 - **`src/cost-manager.ts`** — Per-model cost tracking, daily/monthly thresholds, disk persistence.
 - **`src/benchmark.ts`** — Model performance benchmarking tool. Compares speed, accuracy, and cost across configured models.
+- **`src/model-discovery.ts`** — Model discovery, testing, and hot-swap. Searches OpenRouter catalog, tests candidates, and updates config.
+- **`src/query-logger.ts`** — Structured query logging with per-model results, verdict, cache hit tracking.
 
 ### Data flow
 
@@ -73,6 +76,9 @@ Clients are cached per provider/baseURL. Model shorthands (e.g., `"gpt-5.2"`, `"
 - **Markdown-resilient parsing** — verdict/severity regex strips `**` bold markers before matching (Mistral wraps headings in bold)
 - **Token estimation** — `Math.ceil(text.length / 4)` for pre-flight size checks, no tokenizer dependency
 - **Cost tracking** — `MODEL_COSTS` map in engine.ts has per-1M-token rates; costs aggregated across all API calls
+- **Zero-token detection** — Models returning 0 output tokens + empty content are retried once, then marked as failures (not phantom successes)
+- **Transient retry** — Single retry with 2s delay for network errors and 5xx; no retry for 4xx (auth, rate limit)
+- **`apiKeyEnv` override** — Reviewers can specify which env var holds their API key, enabling multiple reviewers to share one key (e.g., two OpenRouter-backed models)
 
 ## Configuration
 

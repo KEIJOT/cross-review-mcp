@@ -6,8 +6,28 @@ import { createProvider, LLMProvider } from './providers.js';
 import { TokenTracker } from './tracking.js';
 import { CacheManager } from './cache.js';
 import { CostManager } from './cost-manager.js';
-import { eventBus } from './events.js';
+import { eventBus, type ModelResultSummary } from './events.js';
 import { log } from './logger.js';
+
+// Retry config for transient failures
+const RETRY_DELAY_MS = 2000;
+const MAX_RETRIES = 1;
+
+function isRetryable(error: string): boolean {
+  // Retry on network errors and 5xx server errors, not on 4xx (auth, rate limit)
+  const retryablePatterns = [
+    'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND',
+    'fetch failed', 'network', 'socket hang up',
+    '500', '502', '503', '504', 'Internal Server Error',
+    'Bad Gateway', 'Service Unavailable', 'Gateway Timeout',
+  ];
+  const lower = error.toLowerCase();
+  return retryablePatterns.some(p => lower.includes(p.toLowerCase()));
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 // Model presets — sorted by cost (cheapest first based on typical config pricing)
 const MODEL_PRESETS: Record<string, { count: number; prefer: 'cheapest' | 'all' }> = {
@@ -38,7 +58,7 @@ export class ReviewExecutor {
 
   private initializeProviders(): void {
     for (const reviewer of this.config.reviewers) {
-      const envKey = `${reviewer.id.toUpperCase()}_API_KEY`;
+      const envKey = reviewer.apiKeyEnv || `${reviewer.id.toUpperCase()}_API_KEY`;
       const apiKey = process.env[envKey];
       if (!apiKey) {
         log('info', 'executor', `Skipping ${reviewer.id}: no API key (${envKey})`);
@@ -115,6 +135,25 @@ export class ReviewExecutor {
       const cached = this.cache.get(request.content, reviewType);
       if (cached) {
         log('info', 'executor', `Cache hit for ${requestId.slice(0, 8)}`);
+        // Emit events so cached requests are logged too
+        eventBus.emitRequestStart({
+          requestId,
+          timestamp: new Date().toISOString(),
+          contentLength: request.content.length,
+          contentPreview: request.content.substring(0, 200),
+          type: reviewType,
+          models: Array.from(activeProviders.keys()),
+          sessionId: request.sessionId,
+        });
+        eventBus.emitRequestComplete({
+          requestId,
+          timestamp: new Date().toISOString(),
+          executionTimeMs: 0,
+          totalCost: 0,
+          modelCount: Object.keys(cached.reviews || {}).length,
+          successCount: Object.keys(cached.reviews || {}).length,
+          cacheHit: true,
+        });
         return cached;
       }
       log('debug', 'executor', `Cache miss for ${requestId.slice(0, 8)}`);
@@ -127,54 +166,111 @@ export class ReviewExecutor {
       requestId,
       timestamp: new Date().toISOString(),
       contentLength: request.content.length,
+      contentPreview: request.content.substring(0, 200),
       type: reviewType,
       models: Array.from(activeProviders.keys()),
+      sessionId: request.sessionId,
     });
 
-    // Execute selected providers
+    // Execute selected providers with retry and zero-token detection
     const promises = Array.from(activeProviders.entries()).map(async ([id, provider]) => {
       const modelStart = Date.now();
-      try {
-        const response = await provider.sendRequest(request.content, '');
-        responses.set(id, response);
+      let lastError: string | undefined;
 
-        // Track cost per model
-        if (this.costManager) {
-          this.costManager.trackUsage(id, response.inputTokens, response.outputTokens);
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 0) {
+            log('info', 'executor', `${id} retry ${attempt}/${MAX_RETRIES} after ${RETRY_DELAY_MS}ms`);
+            await delay(RETRY_DELAY_MS);
+          }
+
+          const response = await provider.sendRequest(request.content, '');
+
+          // Zero-token detection: if model returns 0 output tokens and empty content, treat as failure
+          if (response.outputTokens === 0 && (!response.content || response.content.trim() === '')) {
+            const emptyError = `Empty response from model (0 output tokens, no content)`;
+            log('warn', 'executor', `${id}: ${emptyError}`);
+
+            // Retry if we have attempts left
+            if (attempt < MAX_RETRIES) {
+              lastError = emptyError;
+              continue;
+            }
+
+            // Final attempt still empty — mark as failure
+            const errorResponse: LLMResponse = {
+              modelId: id,
+              content: '',
+              inputTokens: response.inputTokens,
+              outputTokens: 0,
+              finishReason: 'error',
+              error: emptyError,
+              executionTimeMs: Date.now() - modelStart,
+            };
+            responses.set(id, errorResponse);
+            eventBus.emitModelComplete({
+              requestId,
+              modelId: id,
+              timestamp: new Date().toISOString(),
+              success: false,
+              inputTokens: response.inputTokens,
+              outputTokens: 0,
+              executionTimeMs: Date.now() - modelStart,
+              error: emptyError,
+            });
+            return;
+          }
+
+          responses.set(id, response);
+
+          // Track cost per model
+          if (this.costManager) {
+            this.costManager.trackUsage(id, response.inputTokens, response.outputTokens);
+          }
+
+          eventBus.emitModelComplete({
+            requestId,
+            modelId: id,
+            timestamp: new Date().toISOString(),
+            success: true,
+            inputTokens: response.inputTokens,
+            outputTokens: response.outputTokens,
+            executionTimeMs: response.executionTimeMs || (Date.now() - modelStart),
+          });
+          log('info', 'executor', `${id} completed: ${response.inputTokens}in/${response.outputTokens}out tokens, ${Date.now() - modelStart}ms`);
+          return; // Success — exit retry loop
+        } catch (error) {
+          lastError = String(error);
+
+          // Only retry on transient errors
+          if (attempt < MAX_RETRIES && isRetryable(lastError)) {
+            continue;
+          }
+
+          // Final attempt or non-retryable error
+          const errorResponse: LLMResponse = {
+            modelId: id,
+            content: '',
+            inputTokens: 0,
+            outputTokens: 0,
+            finishReason: 'error',
+            error: lastError,
+            executionTimeMs: Date.now() - modelStart,
+          };
+          responses.set(id, errorResponse);
+          eventBus.emitModelComplete({
+            requestId,
+            modelId: id,
+            timestamp: new Date().toISOString(),
+            success: false,
+            inputTokens: 0,
+            outputTokens: 0,
+            executionTimeMs: Date.now() - modelStart,
+            error: lastError,
+          });
+          log('error', 'executor', `${id} failed: ${lastError.slice(0, 100)}`);
+          return;
         }
-
-        eventBus.emitModelComplete({
-          requestId,
-          modelId: id,
-          timestamp: new Date().toISOString(),
-          success: true,
-          inputTokens: response.inputTokens,
-          outputTokens: response.outputTokens,
-          executionTimeMs: response.executionTimeMs || (Date.now() - modelStart),
-        });
-        log('info', 'executor', `${id} completed: ${response.inputTokens}in/${response.outputTokens}out tokens, ${Date.now() - modelStart}ms`);
-      } catch (error) {
-        const errorResponse: LLMResponse = {
-          modelId: id,
-          content: '',
-          inputTokens: 0,
-          outputTokens: 0,
-          finishReason: 'error',
-          error: String(error),
-          executionTimeMs: Date.now() - startTime,
-        };
-        responses.set(id, errorResponse);
-        eventBus.emitModelComplete({
-          requestId,
-          modelId: id,
-          timestamp: new Date().toISOString(),
-          success: false,
-          inputTokens: 0,
-          outputTokens: 0,
-          executionTimeMs: Date.now() - modelStart,
-          error: String(error),
-        });
-        log('error', 'executor', `${id} failed: ${String(error).slice(0, 100)}`);
       }
     });
 
@@ -212,8 +308,27 @@ export class ReviewExecutor {
       models: Array.from(responses.keys()),
     });
 
+    // Build per-model results for logging
+    const modelResults: ModelResultSummary[] = Array.from(responses.entries()).map(([id, r]) => ({
+      id,
+      success: !r.error,
+      inputTokens: r.inputTokens,
+      outputTokens: r.outputTokens,
+      latencyMs: r.executionTimeMs,
+      ...(r.error ? { error: r.error } : {}),
+    }));
+
+    // Build verdict summary from successful responses
+    const successfulResponses = Array.from(responses.entries()).filter(([, r]) => !r.error);
+    const successCount = successfulResponses.length;
+    const verdict = successCount > 0
+      ? `${successCount}/${responses.size} models completed successfully`
+      : 'All models failed';
+    const verdictSummary = successfulResponses.length > 0
+      ? successfulResponses.map(([id, r]) => `${id}: ${r.content.substring(0, 100)}`).join(' | ')
+      : undefined;
+
     // Emit request complete
-    const successCount = Array.from(responses.values()).filter(r => !r.error).length;
     eventBus.emitRequestComplete({
       requestId,
       timestamp: new Date().toISOString(),
@@ -221,6 +336,10 @@ export class ReviewExecutor {
       totalCost,
       modelCount: responses.size,
       successCount,
+      cacheHit: false,
+      verdict,
+      verdictSummary: verdictSummary?.substring(0, 500),
+      modelResults,
     });
 
     log('info', 'executor', `Request ${requestId.slice(0, 8)} complete: ${successCount}/${responses.size} models, ${executionTimeMs}ms, $${totalCost.toFixed(4)}`);
