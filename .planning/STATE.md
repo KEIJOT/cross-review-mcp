@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-23)
 Phase: — (milestone v0.4.1 complete, no active phase)
 Plan: —
 Status: v0.4.1 shipped, ready for next milestone
-Last activity: 2026-03-14 - Completed quick task 1: Sequential cross-review of CONCERNS.md via LLM chain
+Last activity: 2026-03-20 - Completed quick task 2: Adaptive in-flight fallback to ReviewExecutor
 
 Progress: [████████████████████████] 100% (v0.4.1: 5 of 5 plans)
 
@@ -49,9 +49,10 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Sequential cross-review of CONCERNS.md via LLM chain | 2026-03-14 | ec0a9e0 | [1-sequential-cross-review-of-concerns-md-v](./quick/1-sequential-cross-review-of-concerns-md-v/) |
+| 2 | Adaptive in-flight fallback to ReviewExecutor | 2026-03-20 | 997678f | [2-add-adaptive-in-flight-fallback-to-execu](./quick/2-add-adaptive-in-flight-fallback-to-execu/) |
 
 ## Session Continuity
 
-Last session: 2026-02-23
-Stopped at: v0.4.1 milestone completed and archived
+Last session: 2026-03-20
+Stopped at: Completed quick task 2 - adaptive fallback in ReviewExecutor
 Resume file: None
