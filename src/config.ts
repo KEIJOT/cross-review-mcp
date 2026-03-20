@@ -12,6 +12,7 @@ export const ReviewerConfigSchema = z.object({
   execution_order: z.number().int().min(1).default(1),
   baseUrl: z.string().optional(),
   apiKeyEnv: z.string().optional(),  // Override default ${ID}_API_KEY env var name
+  contextLength: z.number().int().min(0).optional(),
 });
 
 export type ReviewerConfig = z.infer<typeof ReviewerConfigSchema>;

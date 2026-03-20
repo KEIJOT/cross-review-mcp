@@ -12,6 +12,7 @@ export interface LLMResponse {
   outputTokens: number;
   finishReason: 'stop' | 'length' | 'error' | 'timeout';
   error?: string;
+  fallbackFrom?: string;
   executionTimeMs: number;
 }
 
