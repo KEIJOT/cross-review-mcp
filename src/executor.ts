@@ -8,6 +8,7 @@ import { CacheManager } from './cache.js';
 import { CostManager } from './cost-manager.js';
 import { eventBus, type ModelResultSummary } from './events.js';
 import { log } from './logger.js';
+import { findReplacement, type DiscoveredModel } from './model-discovery.js';
 
 // Retry config for transient failures
 const RETRY_DELAY_MS = 2000;
@@ -27,6 +28,20 @@ function isRetryable(error: string): boolean {
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+type FailureReason = 'token_limit' | 'rate_limit' | 'empty_response' | 'network' | 'unknown';
+
+function classifyFailure(error: string, outputTokens: number, inputTokens: number): FailureReason {
+  if (outputTokens === 0 && inputTokens > 0) return 'token_limit';
+  if (/rate|429/i.test(error)) return 'rate_limit';
+  if (/empty response/i.test(error)) return 'empty_response';
+  if (isRetryable(error)) return 'network';
+  return 'unknown';
+}
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
 }
 
 // Model presets — sorted by cost (cheapest first based on typical config pricing)
@@ -177,6 +192,52 @@ export class ReviewExecutor {
       const modelStart = Date.now();
       let lastError: string | undefined;
 
+      // Proactive skip: if estimated tokens > 80% of model's context window, skip to fallback
+      const reviewer = this.config.reviewers.find(r => r.id === id);
+      const contextLength = reviewer?.contextLength;
+      const estimatedInputTokens = estimateTokens(request.content);
+
+      if (contextLength && estimatedInputTokens > contextLength * 0.8) {
+        log('warn', 'executor', `${id}: proactive skip — estimated ${estimatedInputTokens} tokens > 80% of ${contextLength} context window`);
+        const fallbackResponse = await this.attemptFallback(id, 'token_limit', estimatedInputTokens, request, activeProviders, requestId, modelStart);
+        if (fallbackResponse) {
+          responses.set(id, fallbackResponse);
+          eventBus.emitModelComplete({
+            requestId,
+            modelId: fallbackResponse.modelId,
+            timestamp: new Date().toISOString(),
+            success: true,
+            inputTokens: fallbackResponse.inputTokens,
+            outputTokens: fallbackResponse.outputTokens,
+            executionTimeMs: fallbackResponse.executionTimeMs || (Date.now() - modelStart),
+          });
+          return;
+        }
+        // No fallback available — write error
+        const proactiveError = `Proactive skip: prompt too large for context window (${estimatedInputTokens}/${contextLength} tokens)`;
+        const errorResponse: LLMResponse = {
+          modelId: id,
+          content: '',
+          inputTokens: 0,
+          outputTokens: 0,
+          finishReason: 'error',
+          error: proactiveError,
+          executionTimeMs: Date.now() - modelStart,
+        };
+        responses.set(id, errorResponse);
+        eventBus.emitModelComplete({
+          requestId,
+          modelId: id,
+          timestamp: new Date().toISOString(),
+          success: false,
+          inputTokens: 0,
+          outputTokens: 0,
+          executionTimeMs: Date.now() - modelStart,
+          error: proactiveError,
+        });
+        return;
+      }
+
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
           if (attempt > 0) {
@@ -197,7 +258,23 @@ export class ReviewExecutor {
               continue;
             }
 
-            // Final attempt still empty — mark as failure
+            // Final attempt still empty — attempt adaptive fallback
+            const emptyReason = classifyFailure(emptyError, response.outputTokens, response.inputTokens);
+            const emptyFallback = await this.attemptFallback(id, emptyReason, estimatedInputTokens, request, activeProviders, requestId, modelStart);
+            if (emptyFallback) {
+              responses.set(id, emptyFallback);
+              eventBus.emitModelComplete({
+                requestId,
+                modelId: emptyFallback.modelId,
+                timestamp: new Date().toISOString(),
+                success: true,
+                inputTokens: emptyFallback.inputTokens,
+                outputTokens: emptyFallback.outputTokens,
+                executionTimeMs: emptyFallback.executionTimeMs || (Date.now() - modelStart),
+              });
+              return;
+            }
+            // No fallback — write original error
             const errorResponse: LLMResponse = {
               modelId: id,
               content: '',
@@ -247,7 +324,23 @@ export class ReviewExecutor {
             continue;
           }
 
-          // Final attempt or non-retryable error
+          // Final attempt or non-retryable error — attempt adaptive fallback
+          const catchReason = classifyFailure(lastError, 0, 0);
+          const catchFallback = await this.attemptFallback(id, catchReason, estimatedInputTokens, request, activeProviders, requestId, modelStart);
+          if (catchFallback) {
+            responses.set(id, catchFallback);
+            eventBus.emitModelComplete({
+              requestId,
+              modelId: catchFallback.modelId,
+              timestamp: new Date().toISOString(),
+              success: true,
+              inputTokens: catchFallback.inputTokens,
+              outputTokens: catchFallback.outputTokens,
+              executionTimeMs: catchFallback.executionTimeMs || (Date.now() - modelStart),
+            });
+            return;
+          }
+          // No fallback — write original error
           const errorResponse: LLMResponse = {
             modelId: id,
             content: '',
@@ -361,5 +454,76 @@ export class ReviewExecutor {
     }
 
     return result;
+  }
+
+  private async attemptFallback(
+    originalId: string,
+    reason: FailureReason,
+    estimatedTokens: number,
+    request: ReviewRequest,
+    activeProviders: Map<string, LLMProvider>,
+    requestId: string,
+    modelStart: number,
+  ): Promise<LLMResponse | null> {
+    try {
+      const result = await findReplacement(originalId, {
+        freeOnly: true,
+        minContextLength: estimatedTokens * 5,
+        maxCandidates: 3,
+      });
+
+      if (!result.recommended) {
+        log('warn', 'executor', `${originalId}: no fallback replacement found (reason: ${reason})`);
+        return null;
+      }
+
+      const replacementId = result.recommended.model.id;
+
+      // Don't use a model that's already active in this request
+      if (activeProviders.has(replacementId)) {
+        log('warn', 'executor', `${originalId}: fallback ${replacementId} already in active providers, skipping`);
+        return null;
+      }
+
+      // Find API key for the replacement (use OpenRouter key since findReplacement searches OpenRouter)
+      const apiKey = process.env['OPENROUTER_API_KEY'];
+      if (!apiKey) {
+        log('warn', 'executor', `${originalId}: no OPENROUTER_API_KEY for fallback provider`);
+        return null;
+      }
+
+      // Create temporary provider for the replacement
+      const tempConfig = {
+        id: replacementId,
+        provider: 'openai-compatible' as const,
+        model: replacementId,
+        baseUrl: 'https://openrouter.ai/api/v1',
+        timeout_ms: 60000,
+        slack_time_ms: 0,
+        execution_order: 1,
+      };
+      const tempProvider = createProvider(tempConfig, apiKey);
+
+      log('warn', 'executor', `${originalId} -> fallback -> ${replacementId} (reason: ${reason}, tokens: ${estimatedTokens})`);
+
+      const response = await tempProvider.sendRequest(request.content, '');
+
+      // Zero-token check on fallback too
+      if (response.outputTokens === 0 && (!response.content || response.content.trim() === '')) {
+        log('warn', 'executor', `${originalId}: fallback ${replacementId} also returned empty`);
+        return null;
+      }
+
+      // Tag with fallback origin
+      return {
+        ...response,
+        modelId: replacementId,
+        fallbackFrom: originalId,
+        executionTimeMs: Date.now() - modelStart,
+      };
+    } catch (error) {
+      log('warn', 'executor', `${originalId}: fallback attempt failed: ${String(error).slice(0, 100)}`);
+      return null;
+    }
   }
 }
