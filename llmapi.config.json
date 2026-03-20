@@ -5,6 +5,7 @@
       "name": "GPT-5.2",
       "provider": "openai",
       "model": "gpt-5.2",
+      "contextLength": 128000,
       "timeout_ms": 30000,
       "execution_order": 1
     },
@@ -13,6 +14,7 @@
       "name": "Gemini Flash",
       "provider": "gemini",
       "model": "gemini-2.0-flash",
+      "contextLength": 1000000,
       "timeout_ms": 30000,
       "execution_order": 2
     },
@@ -23,6 +25,7 @@
       "model": "nvidia/nemotron-3-super-120b-a12b:free",
       "baseUrl": "https://openrouter.ai/api/v1",
       "apiKeyEnv": "OPENROUTER_API_KEY",
+      "contextLength": 262144,
       "timeout_ms": 30000,
       "execution_order": 3
     },
@@ -32,6 +35,7 @@
       "provider": "openai-compatible",
       "model": "mistral-large-latest",
       "baseUrl": "https://api.mistral.ai/v1",
+      "contextLength": 128000,
       "timeout_ms": 30000,
       "execution_order": 4
     },
@@ -41,6 +45,7 @@
       "provider": "openai-compatible",
       "model": "openrouter/free",
       "baseUrl": "https://openrouter.ai/api/v1",
+      "contextLength": 32000,
       "timeout_ms": 30000,
       "execution_order": 5
     }
@@ -51,26 +56,11 @@
   },
   "costs": {
     "models": {
-      "openai": {
-        "input_per_1m": 3,
-        "output_per_1m": 15
-      },
-      "gemini": {
-        "input_per_1m": 0.075,
-        "output_per_1m": 0.3
-      },
-      "nemotron": {
-        "input_per_1m": 0,
-        "output_per_1m": 0
-      },
-      "mistral": {
-        "input_per_1m": 2,
-        "output_per_1m": 6
-      },
-      "openrouter": {
-        "input_per_1m": 0,
-        "output_per_1m": 0
-      }
+      "openai": { "input_per_1m": 3, "output_per_1m": 15 },
+      "gemini": { "input_per_1m": 0.075, "output_per_1m": 0.3 },
+      "nemotron": { "input_per_1m": 0, "output_per_1m": 0 },
+      "mistral": { "input_per_1m": 2, "output_per_1m": 6 },
+      "openrouter": { "input_per_1m": 0, "output_per_1m": 0 }
     }
   },
   "tracking": {

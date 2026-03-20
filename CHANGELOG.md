@@ -1,9 +1,40 @@
 # Changelog
-
 All notable changes to this project will be documented in this file.
-
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.8.0] — 2026-03-20
+
+### Added
+- **Adaptive in-flight fallback** — When a model fails (token limit, empty response, rate limit, network error), the executor automatically searches for a working replacement via OpenRouter and retries the request transparently. The response is tagged with `fallbackFrom` so callers know a substitution occurred.
+- **Failure classification** — `classifyFailure()` categorizes every model failure into `token_limit | rate_limit | empty_response | network | unknown`. Each reason can drive different fallback strategies in future.
+- **Proactive context-window skip** — Before sending a request to a model, token count is estimated (`chars / 4`) and compared against the model's declared `contextLength`. If the prompt exceeds 80% of the context window, the model is skipped immediately — no wasted API call — and fallback fires directly.
+- **`contextLength` config field** — `ReviewerConfig` now accepts an optional `contextLength: number` so each reviewer can declare its model's context window for proactive skip. All 5 default reviewers now have this set.
+- **`fallbackFrom` response field** — `LLMResponse` now includes an optional `fallbackFrom?: string` containing the original model ID when a response came from a substitute model.
+
+### Changed
+- Fallback search uses `minContextLength: estimatedTokens * 2` — conservative enough to ensure the replacement can handle the prompt, practical enough to find candidates among available free models.
+- Fallback search is not restricted to free models (`freeOnly: false`) — paid models in the catalog are eligible replacements, ensuring higher availability.
+
+### How it works
+```
+Request arrives for model X
+  → Estimate tokens from prompt length
+  → If tokens > contextLength * 0.8: skip X, call findReplacement()
+  → Else: attempt X (with existing retry logic)
+       → On failure: classify reason, call findReplacement()
+  → If replacement found and not already active: retry against replacement
+  → Tag response: { modelId: replacementId, fallbackFrom: "X" }
+  → If no replacement: write error response as before
+```
+
+### Verified
+- Proactive skip fires: `nemotron: proactive skip — estimated 9201 tokens > 80% of 4096 context window`
+- Fallback log line: `nemotron -> fallback -> nvidia/nemotron-3-super-120b-a12b:free (reason: token_limit, tokens: 9201)`
+- `fallbackFrom` tagged in response
+- 102/102 tests pass
+
+---
 
 ## [0.7.0] — 2026-03-19
 
@@ -95,21 +126,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Markdown-resilient verdict parsing (handles Mistral bold markers)
 - Token estimation accuracy
 - Cost calculation per model
-
-### Documented
-- QUICK_START.md
-- INSTALLATION.md
-- CONFIGURATION.md
-- CLI_REFERENCE.md
-- ARCHITECTURE.md
-- SETUP_OPENAI.md
-- SETUP_GEMINI.md
-- SETUP_DEEPSEEK.md
-- PROVIDER_COMPARISON.md
-- TESTING.md
-- DEBUGGING.md
-- FAQ.md
-- MCP_INTEGRATION.md
 
 ## [0.4.1] — 2026-02-24
 

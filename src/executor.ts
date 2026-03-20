@@ -467,8 +467,8 @@ export class ReviewExecutor {
   ): Promise<LLMResponse | null> {
     try {
       const result = await findReplacement(originalId, {
-        freeOnly: true,
-        minContextLength: estimatedTokens * 5,
+        freeOnly: false,
+        minContextLength: estimatedTokens * 2,
         maxCandidates: 3,
       });
 

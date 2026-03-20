@@ -1,4 +1,4 @@
-# cross-review-mcp v0.7.0
+# cross-review-mcp v0.8.0
 
 **Get expert advice from 5 AI models at the same time.**
 
