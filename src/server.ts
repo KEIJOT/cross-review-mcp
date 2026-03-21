@@ -8,6 +8,9 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { eventBus } from './events.js';
 import { getDashboardHTML } from './dashboard.js';
 import { CacheManager } from './cache.js';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
 import { CostManager } from './cost-manager.js';
 import { QueryLogger } from './query-logger.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -47,7 +50,7 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
       status: 'ok',
       uptime: Math.floor(eventBus.getUptimeMs() / 1000),
       providers,
-      version: version || '0.6.3',
+      version: version || pkg.version,
       activeSessions: transports.size,
       totalRequests: eventBus.getTotalRequests(),
     });
@@ -217,7 +220,7 @@ export async function startHTTPServer(options: HTTPServerOptions): Promise<void>
     });
 
     const server = new Server(
-      { name: 'cross-review-mcp', version: '0.6.3' },
+      { name: 'cross-review-mcp', version: pkg.version },
       { capabilities: { tools: {} } },
     );
 

@@ -31,6 +31,9 @@ import { analyzeDevelopmentProblem } from './dev-guidance.js';
 import { configureLogger } from './logger.js';
 import { buildModelBenchmark } from './benchmark.js';
 import { searchModels, testModel, swapModel, findReplacement } from './model-discovery.js';
+import { createRequire } from 'module';
+const _require = createRequire(import.meta.url);
+const _pkg = _require('../package.json');
 
 // Re-export library components for NPM usage
 export { ReviewExecutor } from './executor.js';

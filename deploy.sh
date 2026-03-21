@@ -8,9 +8,9 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REMOTE_HOST="51.15.218.196"
-REMOTE_USER="root"
-REMOTE_PATH="/opt/llmapi"
+REMOTE_HOST="192.168.1.120"
+REMOTE_USER="keijo"
+REMOTE_PATH="/home/keijo/LLMAPI"
 SERVICE_NAME="llmapi"
 SSH_KEY="$HOME/.ssh/id_ed25519"
 
