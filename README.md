@@ -153,7 +153,36 @@ See [Model Discovery Guide](docs/model-discovery.md) for detailed workflows.
 
 ---
 
-## What's New in v0.7.0
+## What's New in v0.8.0
+
+### Adaptive In-Flight Fallback
+When a model fails during a cross-review — token limit, empty response, rate limit, or network error — the executor now **automatically finds a replacement model and retries** instead of wasting the slot.
+
+```
+You:  "Review this 10,000-token prompt"
+ -> nemotron: proactive skip (prompt too large for context window)
+ -> fallback → nvidia/llama-3.1-70b via OpenRouter
+ -> Response tagged: { fallbackFrom: "nemotron", modelId: "nvidia/llama-3.1-70b" }
+```
+
+**How it works:**
+1. **Pre-flight check** — Estimates token count, compares against the model's `contextLength`. If >80%, skips the API call entirely and goes straight to fallback.
+2. **Post-failure fallback** — After retries are exhausted, searches the OpenRouter catalog for a working replacement (`minContextLength: estimatedTokens * 2`), tests candidates, and retries.
+3. **Tagged responses** — `fallbackFrom` field on `LLMResponse` shows which original model was replaced, so you always know a substitution happened.
+
+**Configuration:** Each reviewer can declare `contextLength` in config for proactive skip. If omitted, only reactive fallback works.
+
+```json
+{
+  "id": "nemotron",
+  "model": "nvidia/nemotron-3-super-120b-a12b:free",
+  "contextLength": 262144
+}
+```
+
+See [Adaptive Fallback Documentation](docs/adaptive-fallback.md) for full details.
+
+### Previous v0.7.0 Features
 
 ### Model Discovery & Hot-Swap
 **New in v0.7.0:** 4 new MCP tools let you search, test, and swap LLM providers without editing config files. When a provider runs out of credits or goes down, find a replacement in seconds:
