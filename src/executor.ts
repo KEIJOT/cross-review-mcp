@@ -30,9 +30,9 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-type FailureReason = 'token_limit' | 'rate_limit' | 'empty_response' | 'network' | 'unknown';
+export type FailureReason = 'token_limit' | 'rate_limit' | 'empty_response' | 'network' | 'unknown';
 
-function classifyFailure(error: string, outputTokens: number, inputTokens: number): FailureReason {
+export function classifyFailure(error: string, outputTokens: number, inputTokens: number): FailureReason {
   if (outputTokens === 0 && inputTokens > 0) return 'token_limit';
   if (/rate|429/i.test(error)) return 'rate_limit';
   if (/empty response/i.test(error)) return 'empty_response';
@@ -40,7 +40,7 @@ function classifyFailure(error: string, outputTokens: number, inputTokens: numbe
   return 'unknown';
 }
 
-function estimateTokens(text: string): number {
+export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
@@ -137,7 +137,7 @@ export class ReviewExecutor {
   async execute(request: ReviewRequest): Promise<ReviewResult> {
     const startTime = Date.now();
     const requestId = eventBus.generateRequestId();
-    const reviewType = (request as any).type || 'general';
+    const reviewType = request.type || 'general';
     const contentHash = request.contentHash || this.generateContentHash(request.content, reviewType);
 
     // Resolve which providers to use for this request
@@ -473,7 +473,11 @@ export class ReviewExecutor {
       });
 
       if (!result.recommended) {
-        log('warn', 'executor', `${originalId}: no fallback replacement found (reason: ${reason})`);
+        const tested = result.candidates.length;
+        const detail = tested === 0
+          ? 'no candidates in catalog'
+          : `${tested} candidates tested, all failed`;
+        log('warn', 'executor', `${originalId}: no fallback replacement found — ${detail} (reason: ${reason})`);
         return null;
       }
 

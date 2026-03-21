@@ -19,6 +19,7 @@ export interface LLMResponse {
 export interface ReviewRequest {
   content: string;
   contentHash?: string;
+  type?: string;  // Review type: 'general' | 'security' | 'performance' | 'correctness' | 'style'
   strategy?: string;
   models?: string | string[];  // Preset name ('fast'|'balanced'|'thorough') or array of model IDs
   sessionId?: string;
